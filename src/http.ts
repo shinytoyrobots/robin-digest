@@ -14,41 +14,85 @@ upsertPipelines(pipelineConfigs);
 console.error(`[init] Loaded ${pipelineConfigs.length} pipeline configs`);
 
 const app = express();
-app.use(express.json());
 
-// Landing page
-app.get("/", (_req, res) => {
-  res.type("html").send(`<!DOCTYPE html>
-<html><head><title>Robin Digest</title>
-<style>body{font-family:system-ui,sans-serif;max-width:600px;margin:60px auto;padding:0 20px;color:#333}
-h1{font-size:1.5rem}code{background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:0.9em}
-li{margin:8px 0}.muted{color:#888;font-size:0.85rem}</style></head>
-<body>
-<h1>Robin Digest</h1>
-<p>Content curation pipeline — fetches blog content, curates knowledge snippets via Claude, and exposes results as an MCP server.</p>
-<h3>Endpoints</h3>
-<ul>
-<li><strong>MCP:</strong> <code>/mcp</code></li>
-<li><strong>Admin:</strong> <code>POST /admin/run-pipeline</code></li>
-</ul>
-<p class="muted">Part of the robin-mcp ecosystem</p>
-</body></html>`);
-});
+function esc(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
 
-// Auth middleware for /mcp and /admin
+function formatDate(iso: string): string {
+  const d = new Date(iso + "Z");
+  return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+}
+
 function authMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void {
-  if (!config.authToken) {
-    next();
-    return;
-  }
+  if (!config.authToken) { next(); return; }
   const bearer = req.headers.authorization;
   const queryToken = req.query.token as string | undefined;
-  if (bearer === `Bearer ${config.authToken}` || queryToken === config.authToken) {
-    next();
-    return;
-  }
+  if (bearer === `Bearer ${config.authToken}` || queryToken === config.authToken) { next(); return; }
   res.status(401).json({ error: "Unauthorized" });
 }
+
+// --- Landing page ---
+
+app.get("/", (_req, res) => {
+  res.type("html").send(
+    "<!DOCTYPE html><html><head><title>Robin Digest</title></head>" +
+    "<body><h1>Robin Digest</h1>" +
+    "<p>Content curation pipeline. <a href=\"/digests\">View digests</a></p>" +
+    "</body></html>"
+  );
+});
+
+// --- Public digests page ---
+
+app.get("/digests", (_req, res) => {
+  const db = getDb();
+  const digests = db.prepare(
+    "SELECT d.*, p.name as pipeline_name FROM digests d " +
+    "JOIN pipelines p ON d.pipeline_id = p.id " +
+    "WHERE d.created_at > datetime('now', '-7 days') " +
+    "ORDER BY d.created_at DESC"
+  ).all() as { id: number; pipeline_id: string; title: string; created_at: string; pipeline_name: string }[];
+
+  let body = "";
+  if (digests.length === 0) {
+    body = "<p>No digests this week yet.</p>";
+  } else {
+    for (const digest of digests) {
+      const snippets = db.prepare(
+        "SELECT key_insight, source_name, source_url FROM snippets WHERE digest_id = ? ORDER BY position"
+      ).all(digest.id) as { key_insight: string; source_name: string; source_url: string }[];
+
+      body += "<section>";
+      body += "<h2>" + esc(digest.title) + "</h2>";
+      body += "<p class=\"meta\">" + esc(digest.pipeline_name) + " &middot; " + formatDate(digest.created_at) + "</p>";
+      body += "<ul>";
+      for (const s of snippets) {
+        body += "<li>" + esc(s.key_insight) + " <span class=\"source\">&mdash; <a href=\"" + esc(s.source_url) + "\">" + esc(s.source_name) + "</a></span></li>";
+      }
+      body += "</ul></section>";
+    }
+  }
+
+  const html = "<!DOCTYPE html><html><head><title>This Week's Digests</title>" +
+    "<style>" +
+    "body{font-family:system-ui,sans-serif;max-width:640px;margin:48px auto;padding:0 20px;color:#1a1a1a;line-height:1.6}" +
+    "h1{font-size:1.4rem;margin-bottom:.25rem}" +
+    ".subtitle{color:#666;font-size:.9rem;margin-bottom:2rem}" +
+    "h2{font-size:1.1rem;margin-bottom:.25rem}" +
+    ".meta{color:#888;font-size:.8rem;margin-top:0}" +
+    "ul{padding-left:1.25rem}li{margin:12px 0}" +
+    ".source{color:#888;font-size:.85rem}.source a{color:#666}" +
+    "section{margin-bottom:2rem;padding-bottom:1.5rem;border-bottom:1px solid #eee}" +
+    "section:last-child{border-bottom:none}" +
+    "</style></head><body>" +
+    "<h1>This Week's Digests</h1>" +
+    "<p class=\"subtitle\">Key insights curated from PM and industry blogs</p>" +
+    body +
+    "</body></html>";
+
+  res.type("html").send(html);
+});
 
 // --- MCP endpoint ---
 
@@ -65,7 +109,7 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
-app.all("/mcp", authMiddleware, async (req, res) => {
+app.all("/mcp", express.json(), authMiddleware, async (req, res) => {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
 
   if (req.method === "POST") {
@@ -91,38 +135,23 @@ app.all("/mcp", authMiddleware, async (req, res) => {
     }
 
     const session = sessions.get(sessionId);
-    if (!session) {
-      res.status(404).json({ error: "Session not found" });
-      return;
-    }
+    if (!session) { res.status(404).json({ error: "Session not found" }); return; }
     await session.transport.handleRequest(req, res, req.body);
     return;
   }
 
   if (req.method === "GET") {
-    if (!sessionId) {
-      res.status(400).json({ error: "Missing mcp-session-id header" });
-      return;
-    }
+    if (!sessionId) { res.status(400).json({ error: "Missing mcp-session-id header" }); return; }
     const session = sessions.get(sessionId);
-    if (!session) {
-      res.status(404).json({ error: "Session not found" });
-      return;
-    }
+    if (!session) { res.status(404).json({ error: "Session not found" }); return; }
     await session.transport.handleRequest(req, res);
     return;
   }
 
   if (req.method === "DELETE") {
-    if (!sessionId) {
-      res.status(400).json({ error: "Missing mcp-session-id header" });
-      return;
-    }
+    if (!sessionId) { res.status(400).json({ error: "Missing mcp-session-id header" }); return; }
     const session = sessions.get(sessionId);
-    if (!session) {
-      res.status(404).json({ error: "Session not found" });
-      return;
-    }
+    if (!session) { res.status(404).json({ error: "Session not found" }); return; }
     await session.transport.handleRequest(req, res);
     sessions.delete(sessionId);
     return;
@@ -133,9 +162,8 @@ app.all("/mcp", authMiddleware, async (req, res) => {
 
 // --- Admin API ---
 
-app.post("/admin/run-pipeline", authMiddleware, async (req, res) => {
+app.post("/admin/run-pipeline", express.json(), authMiddleware, async (req, res) => {
   const pipelineId = req.body?.pipeline_id as string | undefined;
-
   try {
     if (pipelineId) {
       console.error(`[admin] Manual run: ${pipelineId}`);
@@ -173,4 +201,5 @@ app.listen(config.httpPort, () => {
   console.error(`robin-digest listening on port ${config.httpPort}`);
   console.error(`MCP endpoint: http://localhost:${config.httpPort}/mcp`);
   console.error(`Admin: POST http://localhost:${config.httpPort}/admin/run-pipeline`);
+  console.error(`Digests: http://localhost:${config.httpPort}/digests`);
 });
