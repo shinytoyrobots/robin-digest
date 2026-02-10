@@ -1,0 +1,30 @@
+{
+  "name": "robin-digest",
+  "version": "1.0.0",
+  "description": "Content curation pipeline — fetches, curates, and serves digests as MCP",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/http.ts",
+    "start": "node dist/http.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "better-sqlite3": "^11.0.0",
+    "dotenv": "^16.4.0",
+    "express": "^5.2.0",
+    "js-yaml": "^4.1.0",
+    "node-cron": "^3.0.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.0",
+    "@types/express": "^5.0.0",
+    "@types/js-yaml": "^4.0.0",
+    "@types/node": "^22.0.0",
+    "@types/node-cron": "^3.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.7.0"
+  }
+}
