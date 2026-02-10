@@ -10,7 +10,7 @@ dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
 
 export const config = {
   dbPath: process.env.DB_PATH || "./data/digest.db",
-  httpPort: parseInt(process.env.HTTP_PORT || "3002", 10),
+  httpPort: parseInt(process.env.PORT || process.env.HTTP_PORT || "3002", 10),
   authToken: process.env.AUTH_TOKEN || "",
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || "",
   claudeModel: process.env.CLAUDE_MODEL || "claude-haiku-4-5-20251001",
