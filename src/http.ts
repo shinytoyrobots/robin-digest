@@ -162,6 +162,20 @@ app.all("/mcp", express.json(), authMiddleware, async (req, res) => {
 
 // --- Admin API ---
 
+app.post("/admin/seed-sources", express.json(), authMiddleware, (req, res) => {
+  const { pipeline_id, sources } = req.body as { pipeline_id: string; sources: { name: string; url: string }[] };
+  if (!pipeline_id || !sources?.length) {
+    res.status(400).json({ error: "pipeline_id and sources[] required" });
+    return;
+  }
+  const db = getDb();
+  const insert = db.prepare("INSERT OR IGNORE INTO sources (pipeline_id, name, url) VALUES (?, ?, ?)");
+  const tx = db.transaction(() => { for (const s of sources) insert.run(pipeline_id, s.name, s.url); });
+  tx();
+  const count = (db.prepare("SELECT COUNT(*) as c FROM sources WHERE pipeline_id = ?").get(pipeline_id) as { c: number }).c;
+  res.json({ pipeline_id, total_sources: count });
+});
+
 app.post("/admin/run-pipeline", express.json(), authMiddleware, async (req, res) => {
   const pipelineId = req.body?.pipeline_id as string | undefined;
   try {
