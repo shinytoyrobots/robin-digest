@@ -1,0 +1,9 @@
+id: ai-news
+name: AI News
+max_snippets: 3
+curation_prompt: |
+  You are curating a weekly digest of AI news and analysis for a senior technologist.
+  Select the 2-3 most significant pieces. For each, distill ONE key insight sentence.
+  Prioritize: major product launches, policy/regulation shifts, novel research findings,
+  strategic industry moves, and practical implications for builders.
+  Skip: routine updates, marketing fluff, speculative hype, and rehashed announcements.

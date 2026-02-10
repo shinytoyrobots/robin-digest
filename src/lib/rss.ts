@@ -22,11 +22,12 @@ function parseRss(xml: string): FetchedArticle[] {
     const pubDate = extractTag(item, "pubDate");
     const description = extractTag(item, "description") || extractTag(item, "content:encoded") || "";
 
-    if (!title || !link) continue;
+    if (!link) continue;
+    const resolvedTitle = title || titleFromUrl(link);
 
     articles.push({
       url: link,
-      title: decodeEntities(title),
+      title: decodeEntities(resolvedTitle),
       author: author ? decodeEntities(author) : undefined,
       published_at: pubDate ? normalizeDate(pubDate) : undefined,
       content: stripCdata(description),
@@ -49,17 +50,23 @@ function parseAtom(xml: string): FetchedArticle[] {
     const published = extractTag(entry, "published") || extractTag(entry, "updated");
     const content = extractTag(entry, "content") || extractTag(entry, "summary") || "";
 
-    if (!title || !link) continue;
+    if (!link) continue;
+    const resolvedTitle = title || titleFromUrl(link);
 
     articles.push({
       url: link,
-      title: decodeEntities(title),
+      title: decodeEntities(resolvedTitle),
       author: author ? decodeEntities(author) : undefined,
       published_at: published ? normalizeDate(published) : undefined,
       content: stripCdata(content),
     });
   }
   return articles;
+}
+
+function titleFromUrl(url: string): string {
+  const slug = url.replace(/\/$/, "").split("/").pop() || "untitled";
+  return slug.replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
 function extractTag(xml: string, tag: string): string | null {
