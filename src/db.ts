@@ -70,6 +70,23 @@ function initSchema(db: Database.Database): void {
       source_name TEXT NOT NULL,
       position INTEGER NOT NULL DEFAULT 0
     );
+
+    CREATE TABLE IF NOT EXISTS daily_directions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      focus_angle TEXT NOT NULL,
+      suggestions TEXT NOT NULL,
+      context_summary TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS direction_feedback (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      direction_id INTEGER NOT NULL REFERENCES daily_directions(id),
+      suggestion_index INTEGER NOT NULL,
+      reaction TEXT NOT NULL,
+      note TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // FTS table — created separately since virtual tables don't support IF NOT EXISTS in all builds

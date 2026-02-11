@@ -19,6 +19,9 @@ export const config = {
   fetchTimeoutMs: parseInt(process.env.FETCH_TIMEOUT_MS || "15000", 10),
   cronSchedule: process.env.CRON_SCHEDULE || "0 8 * * 1",
   cronTimezone: process.env.CRON_TIMEZONE || "America/Chicago",
+  robinMcpUrl: process.env.ROBIN_MCP_URL || "http://localhost:3001",
+  robinMcpToken: process.env.ROBIN_MCP_TOKEN || "",
+  directionCron: process.env.DIRECTION_CRON || "30 6 * * *",
 };
 
 export function loadPipelineConfigs(): PipelineConfig[] {

@@ -10,13 +10,19 @@ function getClient(): Anthropic {
   return client;
 }
 
-export async function generateText(prompt: string, systemPrompt?: string): Promise<string> {
+export interface GenerateOptions {
+  temperature?: number;
+  maxTokens?: number;
+}
+
+export async function generateText(prompt: string, systemPrompt?: string, options?: GenerateOptions): Promise<string> {
   const anthropic = getClient();
   const response = await anthropic.messages.create({
     model: config.claudeModel,
-    max_tokens: 2048,
+    max_tokens: options?.maxTokens ?? 2048,
     system: systemPrompt || "",
     messages: [{ role: "user", content: prompt }],
+    ...(options?.temperature !== undefined && { temperature: options.temperature }),
   });
 
   const textBlock = response.content.find((b) => b.type === "text");

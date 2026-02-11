@@ -6,6 +6,8 @@ import { config, loadPipelineConfigs } from "./config.js";
 import { getDb, upsertPipelines } from "./db.js";
 import { createServer } from "./server.js";
 import { runPipeline, runAllPipelines } from "./pipeline/runner.js";
+import { generateDailyDirection } from "./direction/generator.js";
+import type { Suggestion } from "./direction/generator.js";
 
 // Initialize database and load pipeline configs
 getDb();
@@ -38,7 +40,7 @@ app.get("/", (_req, res) => {
   res.type("html").send(
     "<!DOCTYPE html><html><head><title>Robin Digest</title></head>" +
     "<body><h1>Robin Digest</h1>" +
-    "<p>Content curation pipeline. <a href=\"/digests\">View digests</a></p>" +
+    "<p>Content curation pipeline. <a href=\"/digests\">View digests</a> &middot; <a href=\"/dailydirection\">Daily Direction</a></p>" +
     "</body></html>"
   );
 });
@@ -92,6 +94,168 @@ app.get("/digests", (_req, res) => {
     "</body></html>";
 
   res.type("html").send(html);
+});
+
+// --- Daily Direction page ---
+
+const CATEGORY_COLORS: Record<string, string> = {
+  writing: "#6366f1",
+  learning: "#0891b2",
+  project: "#059669",
+  connection: "#d97706",
+  creative: "#c026d3",
+};
+
+function renderDirectionPage(
+  direction: { id: number; focus_angle: string; suggestions: string; created_at: string } | null,
+  feedbackMap: Map<number, string>
+): string {
+  const today = new Date().toLocaleDateString("en-US", {
+    weekday: "long", month: "long", day: "numeric", year: "numeric",
+    timeZone: "America/Chicago",
+  });
+
+  let body = "";
+  if (!direction) {
+    body = `<p class="empty">No direction generated yet today. Check back after 6:30 AM CT.</p>`;
+  } else {
+    let suggestions: Suggestion[];
+    try {
+      suggestions = JSON.parse(direction.suggestions);
+    } catch {
+      suggestions = [];
+    }
+
+    body += `<p class="lens">Today's lens: <strong>${esc(direction.focus_angle.replace(/-/g, " "))}</strong></p>`;
+
+    suggestions.forEach((s, i) => {
+      const color = CATEGORY_COLORS[s.category] || "#666";
+      const existing = feedbackMap.get(i);
+      body += `<div class="card">`;
+      body += `<span class="pill" style="background:${color}">${esc(s.category)}</span>`;
+      body += `<h2>${esc(s.title)}</h2>`;
+      body += `<p>${esc(s.body)}</p>`;
+      if (s.source_refs?.length) {
+        body += `<p class="refs">${s.source_refs.map((r) => esc(r)).join(" &middot; ")}</p>`;
+      }
+      if (existing) {
+        body += `<div class="feedback-done">You marked this: <strong>${esc(existing)}</strong></div>`;
+      } else {
+        body += `<div class="feedback-row" data-direction="${direction.id}" data-index="${i}">`;
+        body += `<button data-reaction="useful">Useful</button>`;
+        body += `<button data-reaction="inspired">Inspired</button>`;
+        body += `<button data-reaction="done">Done</button>`;
+        body += `<button data-reaction="not_relevant">Not relevant</button>`;
+        body += `<input type="text" placeholder="Optional note..." class="note-input">`;
+        body += `</div>`;
+      }
+      body += `</div>`;
+    });
+  }
+
+  return `<!DOCTYPE html><html><head><title>Daily Direction</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{font-family:system-ui,sans-serif;max-width:640px;margin:48px auto;padding:0 20px;color:#1a1a1a;line-height:1.6;background:#fafaf9}
+h1{font-size:1.4rem;margin-bottom:0}
+.date{color:#888;font-size:.9rem;margin-top:.25rem}
+.lens{color:#555;font-size:.95rem;margin:1.5rem 0}
+.card{background:#fff;border:1px solid #e5e5e5;border-radius:8px;padding:1.25rem;margin-bottom:1.25rem}
+.card h2{font-size:1.05rem;margin:.5rem 0 .25rem}
+.card p{margin:.5rem 0;font-size:.95rem}
+.pill{display:inline-block;color:#fff;font-size:.7rem;padding:2px 8px;border-radius:9999px;text-transform:uppercase;letter-spacing:.05em}
+.refs{color:#888;font-size:.8rem}
+.feedback-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:.75rem;align-items:center}
+.feedback-row button{background:#f5f5f4;border:1px solid #d6d3d1;border-radius:6px;padding:4px 10px;font-size:.8rem;cursor:pointer;transition:background .15s}
+.feedback-row button:hover{background:#e7e5e4}
+.feedback-row button.selected{background:#059669;color:#fff;border-color:#059669}
+.note-input{flex:1;min-width:120px;border:1px solid #d6d3d1;border-radius:6px;padding:4px 8px;font-size:.8rem}
+.feedback-done{color:#059669;font-size:.85rem;margin-top:.75rem}
+.empty{color:#888;margin-top:2rem}
+.footer{margin-top:2.5rem;color:#aaa;font-size:.8rem;border-top:1px solid #eee;padding-top:1rem}
+.footer a{color:#888}
+</style></head><body>
+<h1>Daily Direction</h1>
+<p class="date">${esc(today)}</p>
+${body}
+<div class="footer">Generated at 6:30 AM CT &middot; <a href="/">robin-cannon.dev</a></div>
+<script>
+document.querySelectorAll('.feedback-row button').forEach(btn => {
+  btn.addEventListener('click', async function() {
+    const row = this.closest('.feedback-row');
+    const directionId = row.dataset.direction;
+    const index = parseInt(row.dataset.index);
+    const reaction = this.dataset.reaction;
+    const note = row.querySelector('.note-input').value || undefined;
+    try {
+      const res = await fetch('/dailydirection/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ direction_id: parseInt(directionId), suggestion_index: index, reaction, note })
+      });
+      if (res.ok) {
+        row.innerHTML = '<div class="feedback-done">Thanks! Marked as: <strong>' + reaction.replace('_', ' ') + '</strong></div>';
+      }
+    } catch(e) { console.error(e); }
+  });
+});
+</script></body></html>`;
+}
+
+app.get("/dailydirection", (_req, res) => {
+  const db = getDb();
+
+  // Get today's direction (or most recent)
+  const direction = db.prepare(
+    `SELECT id, focus_angle, suggestions, created_at FROM daily_directions
+     WHERE created_at > datetime('now', '-1 day')
+     ORDER BY created_at DESC LIMIT 1`
+  ).get() as { id: number; focus_angle: string; suggestions: string; created_at: string } | undefined;
+
+  // Get existing feedback for this direction
+  const feedbackMap = new Map<number, string>();
+  if (direction) {
+    const rows = db.prepare(
+      "SELECT suggestion_index, reaction FROM direction_feedback WHERE direction_id = ?"
+    ).all(direction.id) as { suggestion_index: number; reaction: string }[];
+    for (const r of rows) {
+      feedbackMap.set(r.suggestion_index, r.reaction);
+    }
+  }
+
+  res.type("html").send(renderDirectionPage(direction ?? null, feedbackMap));
+});
+
+app.post("/dailydirection/feedback", express.json(), (req, res) => {
+  const { direction_id, suggestion_index, reaction, note } = req.body as {
+    direction_id: number; suggestion_index: number; reaction: string; note?: string;
+  };
+
+  const validReactions = ["useful", "not_relevant", "done", "inspired"];
+  if (!direction_id || suggestion_index === undefined || !validReactions.includes(reaction)) {
+    res.status(400).json({ error: "Invalid feedback data" });
+    return;
+  }
+
+  const db = getDb();
+  db.prepare(
+    "INSERT INTO direction_feedback (direction_id, suggestion_index, reaction, note) VALUES (?, ?, ?, ?)"
+  ).run(direction_id, suggestion_index, reaction, note ?? null);
+
+  res.json({ ok: true });
+});
+
+app.post("/admin/run-direction", express.json(), authMiddleware, async (_req, res) => {
+  try {
+    console.error("[admin] Manual direction generation");
+    const id = await generateDailyDirection();
+    const db = getDb();
+    const direction = db.prepare("SELECT * FROM daily_directions WHERE id = ?").get(id);
+    res.json(direction);
+  } catch (err) {
+    console.error("[admin] Direction generation error:", err);
+    res.status(500).json({ error: String(err) });
+  }
 });
 
 // --- MCP endpoint ---
@@ -209,6 +373,19 @@ if (cron.validate(config.cronSchedule)) {
   console.error(`[cron] Scheduled: ${config.cronSchedule} (${config.cronTimezone})`);
 }
 
+if (cron.validate(config.directionCron)) {
+  cron.schedule(config.directionCron, async () => {
+    console.error(`[cron] Daily direction generation starting`);
+    try {
+      const id = await generateDailyDirection();
+      console.error(`[cron] Daily direction generated: #${id}`);
+    } catch (err) {
+      console.error(`[cron] Direction error:`, err);
+    }
+  }, { timezone: config.cronTimezone });
+  console.error(`[cron] Direction scheduled: ${config.directionCron} (${config.cronTimezone})`);
+}
+
 // --- Start ---
 
 app.listen(config.httpPort, () => {
@@ -216,4 +393,5 @@ app.listen(config.httpPort, () => {
   console.error(`MCP endpoint: http://localhost:${config.httpPort}/mcp`);
   console.error(`Admin: POST http://localhost:${config.httpPort}/admin/run-pipeline`);
   console.error(`Digests: http://localhost:${config.httpPort}/digests`);
+  console.error(`Direction: http://localhost:${config.httpPort}/dailydirection`);
 });
