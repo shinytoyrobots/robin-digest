@@ -106,9 +106,49 @@ const CATEGORY_COLORS: Record<string, string> = {
   creative: "#c026d3",
 };
 
+type DirectionRow = { id: number; focus_angle: string; suggestions: string; created_at: string };
+
+function renderHistorySection(
+  pastDirections: DirectionRow[],
+  feedbackByDirection: Map<number, Map<number, string>>
+): string {
+  if (pastDirections.length === 0) return "";
+
+  let html = `<div class="history"><h2 class="history-heading">Previous Directions</h2>`;
+
+  for (const dir of pastDirections) {
+    let suggestions: Suggestion[];
+    try { suggestions = JSON.parse(dir.suggestions); } catch { suggestions = []; }
+
+    const dateLabel = formatDate(dir.created_at);
+    const feedbackMap = feedbackByDirection.get(dir.id) ?? new Map();
+
+    html += `<details class="history-day"><summary>${esc(dateLabel)} &mdash; ${esc(dir.focus_angle.replace(/-/g, " "))}</summary>`;
+
+    suggestions.forEach((s, i) => {
+      const color = CATEGORY_COLORS[s.category] || "#666";
+      const reaction = feedbackMap.get(i);
+      html += `<div class="card history-card">`;
+      html += `<span class="pill" style="background:${color}">${esc(s.category)}</span>`;
+      html += `<h3>${esc(s.title)}</h3>`;
+      html += `<p>${esc(s.body)}</p>`;
+      if (reaction) {
+        html += `<div class="feedback-done">Marked: <strong>${esc(reaction.replace(/_/g, " "))}</strong></div>`;
+      }
+      html += `</div>`;
+    });
+
+    html += `</details>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
+
 function renderDirectionPage(
-  direction: { id: number; focus_angle: string; suggestions: string; created_at: string } | null,
-  feedbackMap: Map<number, string>
+  direction: DirectionRow | null,
+  feedbackMap: Map<number, string>,
+  historyHtml: string
 ): string {
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long", month: "long", day: "numeric", year: "numeric",
@@ -172,12 +212,19 @@ h1{font-size:1.4rem;margin-bottom:0}
 .note-input{flex:1;min-width:120px;border:1px solid #d6d3d1;border-radius:6px;padding:4px 8px;font-size:.8rem}
 .feedback-done{color:#059669;font-size:.85rem;margin-top:.75rem}
 .empty{color:#888;margin-top:2rem}
+.history{margin-top:2.5rem;border-top:1px solid #e5e5e5;padding-top:1.5rem}
+.history-heading{font-size:1.1rem;color:#555;margin-bottom:1rem}
+.history-day{margin-bottom:1rem}
+.history-day summary{cursor:pointer;font-size:.95rem;color:#444;padding:.5rem 0}
+.history-day summary:hover{color:#1a1a1a}
+.history-card h3{font-size:.95rem;margin:.5rem 0 .25rem}
 .footer{margin-top:2.5rem;color:#aaa;font-size:.8rem;border-top:1px solid #eee;padding-top:1rem}
 .footer a{color:#888}
 </style></head><body>
 <h1>Daily Direction</h1>
 <p class="date">${esc(today)}</p>
 ${body}
+${historyHtml}
 <div class="footer">Generated at 6:30 AM CT &middot; <a href="/">robin-cannon.dev</a></div>
 <script>
 document.querySelectorAll('.feedback-row button').forEach(btn => {
@@ -210,7 +257,7 @@ app.get("/dailydirection", (_req, res) => {
     `SELECT id, focus_angle, suggestions, created_at FROM daily_directions
      WHERE created_at > datetime('now', '-1 day')
      ORDER BY created_at DESC LIMIT 1`
-  ).get() as { id: number; focus_angle: string; suggestions: string; created_at: string } | undefined;
+  ).get() as DirectionRow | undefined;
 
   // Get existing feedback for this direction
   const feedbackMap = new Map<number, string>();
@@ -223,7 +270,31 @@ app.get("/dailydirection", (_req, res) => {
     }
   }
 
-  res.type("html").send(renderDirectionPage(direction ?? null, feedbackMap));
+  // Get past directions (up to 7 days, excluding today's)
+  const pastDirections = db.prepare(
+    `SELECT id, focus_angle, suggestions, created_at FROM daily_directions
+     WHERE created_at <= datetime('now', '-1 day') AND created_at > datetime('now', '-7 days')
+     ORDER BY created_at DESC LIMIT 7`
+  ).all() as DirectionRow[];
+
+  // Batch-fetch feedback for all past directions
+  const feedbackByDirection = new Map<number, Map<number, string>>();
+  if (pastDirections.length > 0) {
+    const ids = pastDirections.map((d) => d.id);
+    const placeholders = ids.map(() => "?").join(",");
+    const fbRows = db.prepare(
+      `SELECT direction_id, suggestion_index, reaction FROM direction_feedback WHERE direction_id IN (${placeholders})`
+    ).all(...ids) as { direction_id: number; suggestion_index: number; reaction: string }[];
+    for (const r of fbRows) {
+      if (!feedbackByDirection.has(r.direction_id)) {
+        feedbackByDirection.set(r.direction_id, new Map());
+      }
+      feedbackByDirection.get(r.direction_id)!.set(r.suggestion_index, r.reaction);
+    }
+  }
+
+  const historyHtml = renderHistorySection(pastDirections, feedbackByDirection);
+  res.type("html").send(renderDirectionPage(direction ?? null, feedbackMap, historyHtml));
 });
 
 app.post("/dailydirection/feedback", express.json(), (req, res) => {
