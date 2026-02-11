@@ -114,7 +114,7 @@ function renderHistorySection(
 ): string {
   if (pastDirections.length === 0) return "";
 
-  let html = `<div class="history"><h2 class="history-heading">Previous Directions</h2>`;
+  let html = `<div class="history"><h2 class="history-heading">Yesterday</h2>`;
 
   for (const dir of pastDirections) {
     let suggestions: Suggestion[];
@@ -270,11 +270,11 @@ app.get("/dailydirection", (_req, res) => {
     }
   }
 
-  // Get past directions (up to 7 days, excluding today's)
+  // Get yesterday's direction
   const pastDirections = db.prepare(
     `SELECT id, focus_angle, suggestions, created_at FROM daily_directions
-     WHERE created_at <= datetime('now', '-1 day') AND created_at > datetime('now', '-7 days')
-     ORDER BY created_at DESC LIMIT 7`
+     WHERE created_at <= datetime('now', '-1 day') AND created_at > datetime('now', '-2 days')
+     ORDER BY created_at DESC LIMIT 1`
   ).all() as DirectionRow[];
 
   // Batch-fetch feedback for all past directions
