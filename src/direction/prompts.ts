@@ -41,9 +41,11 @@ Today's focus lens: "${angle}" — ${ANGLE_DESCRIPTIONS[angle]}
 Output ONLY a JSON array with this structure. The first 2-3 items are your regular suggestions. The FINAL item MUST be an "engage" suggestion — one specific article from the digest snippets that Robin should comment on, reply to, or engage with. Pick the article where Robin's perspective would add the most value to the conversation.
 
 For the engage suggestion:
+- ONLY pick articles published within the last 7 days. Check the date shown in brackets. Do NOT pick old articles — engagement on stale content has low value.
 - STRONGLY prefer articles marked [COMMENTABLE] — these have comment sections where Robin can reply directly.
 - If you pick a [COMMENTABLE] article, suggest replying in the comments.
 - If no [COMMENTABLE] article is a good fit and you pick a [NO COMMENTS] article, suggest engaging via LinkedIn or X instead, and note this in the body.
+- If no articles from the last 7 days are worth engaging with, omit the engage suggestion entirely.
 
 [
   {
@@ -76,7 +78,8 @@ No markdown, no preamble, no explanation — just the JSON array.`;
     parts.push("\n## Recent digest snippets (curated this week)");
     for (const s of context.recentDigestSnippets) {
       const tag = s.commentable ? "[COMMENTABLE]" : "[NO COMMENTS]";
-      parts.push(`- ${tag} "${s.insight}" — ${s.source} (${s.source_url})`);
+      const dateStr = s.published_at ? s.published_at.slice(0, 10) : "unknown date";
+      parts.push(`- ${tag} [${dateStr}] "${s.insight}" — ${s.source} (${s.source_url})`);
     }
   }
 
