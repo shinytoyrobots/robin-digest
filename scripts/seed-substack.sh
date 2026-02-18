@@ -40,7 +40,10 @@ seed "substack-culture" '{
     { "name": "Today in Fascism", "url": "https://todayinfascism.substack.com" },
     { "name": "Sommyyah", "url": "https://sommyyah.substack.com" },
     { "name": "Emily Barlett", "url": "https://emilybarlett.substack.com" },
-    { "name": "Beautiful, Daring, Stupid", "url": "https://megoolders.substack.com" }
+    { "name": "Beautiful, Daring, Stupid", "url": "https://megoolders.substack.com" },
+    { "name": "The Panicked Writer", "url": "https://ellieleonard.substack.com" },
+    { "name": "Graphomane", "url": "https://nealstephenson.substack.com" },
+    { "name": "Orwell Daily", "url": "https://orwell.substack.com" }
   ]
 }'
 
@@ -58,7 +61,13 @@ seed "substack-fiction" '{
     { "name": "MY AGENT SECRET", "url": "https://myagentsecret.substack.com" },
     { "name": "Stop Writing Alone", "url": "https://stopwritingalone.substack.com" },
     { "name": "Top In Fiction", "url": "https://topinfiction.substack.com" },
-    { "name": "The Pneumanaut", "url": "https://pneumanauts.substack.com" }
+    { "name": "The Pneumanaut", "url": "https://pneumanauts.substack.com" },
+    { "name": "The Tearoom", "url": "https://mariellahunt.substack.com" },
+    { "name": "Beth Brower", "url": "https://bethbrower.substack.com" },
+    { "name": "Maxwell George", "url": "https://cafelatteau.substack.com" },
+    { "name": "Tom Cox", "url": "https://tomcox.substack.com" },
+    { "name": "Punk Noir Magazine", "url": "https://www.punknoir.online" },
+    { "name": "Project Dreamcatcher", "url": "https://digitalisarchives.substack.com" }
   ]
 }'
 
