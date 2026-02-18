@@ -38,7 +38,12 @@ Key principles:
 
 Today's focus lens: "${angle}" — ${ANGLE_DESCRIPTIONS[angle]}
 
-Output ONLY a JSON array with this structure. The first 2-3 items are your regular suggestions. The FINAL item MUST be an "engage" suggestion — one specific article from the digest snippets that Robin should comment on, reply to, or engage with on Substack. Pick the article where Robin's perspective would add the most value to the conversation.
+Output ONLY a JSON array with this structure. The first 2-3 items are your regular suggestions. The FINAL item MUST be an "engage" suggestion — one specific article from the digest snippets that Robin should comment on, reply to, or engage with. Pick the article where Robin's perspective would add the most value to the conversation.
+
+For the engage suggestion:
+- STRONGLY prefer articles marked [COMMENTABLE] — these have comment sections where Robin can reply directly.
+- If you pick a [COMMENTABLE] article, suggest replying in the comments.
+- If no [COMMENTABLE] article is a good fit and you pick a [NO COMMENTS] article, suggest engaging via LinkedIn or X instead, and note this in the body.
 
 [
   {
@@ -70,7 +75,8 @@ No markdown, no preamble, no explanation — just the JSON array.`;
   if (context.recentDigestSnippets.length > 0) {
     parts.push("\n## Recent digest snippets (curated this week)");
     for (const s of context.recentDigestSnippets) {
-      parts.push(`- "${s.insight}" — ${s.source} (${s.source_url})`);
+      const tag = s.commentable ? "[COMMENTABLE]" : "[NO COMMENTS]";
+      parts.push(`- ${tag} "${s.insight}" — ${s.source} (${s.source_url})`);
     }
   }
 

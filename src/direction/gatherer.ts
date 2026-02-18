@@ -6,7 +6,7 @@ export interface GatheredContext {
   recentToolUsage: { tool: string; calls: number }[];
   activeContexts: string[];
   recentWritings: { title: string; url: string }[];
-  recentDigestSnippets: { insight: string; source: string; source_url: string }[];
+  recentDigestSnippets: { insight: string; source: string; source_url: string; commentable: boolean }[];
   recentFeedback: { reaction: string; suggestion_title: string; note?: string }[];
 }
 
@@ -76,7 +76,12 @@ function fetchRecentDigestSnippets(): GatheredContext["recentDigestSnippets"] {
          LIMIT 15`
       )
       .all() as { key_insight: string; source_name: string; source_url: string }[];
-    return rows.map((r) => ({ insight: r.key_insight, source: r.source_name, source_url: r.source_url }));
+    return rows.map((r) => ({
+      insight: r.key_insight,
+      source: r.source_name,
+      source_url: r.source_url,
+      commentable: r.source_url.includes("substack.com"),
+    }));
   } catch (err) {
     console.error("[direction] Failed to fetch digest snippets:", err);
     return [];
