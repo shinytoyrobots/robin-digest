@@ -35,7 +35,7 @@ Key principles:
 - Be ACTIONABLE. Each suggestion should be something Robin could do today.
 - Be BRIEF. 2-3 sentences per suggestion, no more.
 - Reference SOURCES. Note which context data informed each suggestion.
-- For source_refs: if the source is external (a digest snippet, blog post, or article — NOT Robin's own writings, notes, or vault), format it as "description|URL" so it can be linked. Robin's own content should be plain text with no URL.
+- For source_refs: IMPORTANT — external sources (digest snippets, blog posts, articles) MUST use the format "description|URL" (e.g. "Article Title|https://example.com/article") so they render as clickable links. Robin's own writings/notes should be plain text with no URL. The URL is available in the context data — always include it.
 
 Today's focus lens: "${angle}" — ${ANGLE_DESCRIPTIONS[angle]}
 
@@ -54,20 +54,20 @@ For the engage suggestions:
   {
     "title": "Short imperative title",
     "body": "2-3 sentence explanation with specific references",
-    "source_refs": ["what sources/data informed this"],
+    "source_refs": ["Article Title|https://example.com/article", "Robin's own writing (no URL)"],
     "category": "writing" | "learning" | "project" | "connection" | "creative"
   },
   {
     "title": "Reply to [article title]",
     "body": "Why this article deserves Robin's engagement and what angle to take",
-    "source_refs": ["article title", "source name"],
+    "source_refs": ["Article Title|https://example.com/article", "Source Name"],
     "source_url": "URL of the article",
     "category": "engage"
   },
   {
     "title": "Reply to [different article title]",
     "body": "Why this article deserves Robin's engagement and what angle to take",
-    "source_refs": ["article title", "source name"],
+    "source_refs": ["Article Title|https://example.com/article", "Source Name"],
     "source_url": "URL of the article",
     "category": "engage"
   }
