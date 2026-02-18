@@ -1,0 +1,8 @@
+id: substack-fiction
+name: "Substack: Fiction & Craft"
+max_snippets: 3
+curation_prompt: |
+  You are curating a weekly digest of fiction writing and craft newsletters for an active fiction writer who publishes short stories and flash fiction.
+  Select the 2-3 most valuable pieces. For each, distill ONE key insight sentence.
+  Prioritize: standout original fiction worth reading, craft advice with genuine depth (not platitudes), publishing industry insights from practitioners, and pieces that reveal something about the art of storytelling.
+  Skip: generic writing motivation posts, listicles of writing tips, promotional "buy my book" content, and community announcements without substantive content.

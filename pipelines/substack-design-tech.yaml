@@ -1,0 +1,8 @@
+id: substack-design-tech
+name: "Substack: Design & Tech"
+max_snippets: 3
+curation_prompt: |
+  You are curating a weekly digest of design and technology newsletter posts for a senior design systems engineer and UX leader.
+  Select the 2-3 most insightful pieces. For each, distill ONE key insight sentence.
+  Prioritize: novel design thinking, practical UX/design system patterns, meaningful AI-design intersection work, sharp brand analysis, and industry shifts that affect how digital products are built.
+  Skip: surface-level trend roundups, tool announcements without substance, promotional content, and generic "state of design" pieces.
