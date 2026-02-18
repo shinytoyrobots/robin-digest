@@ -50,19 +50,21 @@ app.get("/", (_req, res) => {
 app.get("/digests", (_req, res) => {
   const db = getDb();
 
-  // Get today's digests
+  // Get latest digest per pipeline for today (deduplicated)
   const todayDigests = db.prepare(
     "SELECT d.*, p.name as pipeline_name FROM digests d " +
     "JOIN pipelines p ON d.pipeline_id = p.id " +
     "WHERE d.created_at > datetime('now', '-1 day') " +
+    "AND d.id = (SELECT id FROM digests d2 WHERE d2.pipeline_id = d.pipeline_id AND d2.created_at > datetime('now', '-1 day') ORDER BY d2.created_at DESC LIMIT 1) " +
     "ORDER BY d.created_at DESC"
   ).all() as { id: number; pipeline_id: string; title: string; created_at: string; pipeline_name: string }[];
 
-  // Get yesterday's digests
+  // Get latest digest per pipeline for yesterday (deduplicated)
   const yesterdayDigests = db.prepare(
     "SELECT d.*, p.name as pipeline_name FROM digests d " +
     "JOIN pipelines p ON d.pipeline_id = p.id " +
     "WHERE d.created_at <= datetime('now', '-1 day') AND d.created_at > datetime('now', '-2 days') " +
+    "AND d.id = (SELECT id FROM digests d2 WHERE d2.pipeline_id = d.pipeline_id AND d2.created_at <= datetime('now', '-1 day') AND d2.created_at > datetime('now', '-2 days') ORDER BY d2.created_at DESC LIMIT 1) " +
     "ORDER BY d.created_at DESC"
   ).all() as { id: number; pipeline_id: string; title: string; created_at: string; pipeline_name: string }[];
 
