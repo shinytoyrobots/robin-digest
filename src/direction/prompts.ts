@@ -35,6 +35,7 @@ Key principles:
 - Be ACTIONABLE. Each suggestion should be something Robin could do today.
 - Be BRIEF. 2-3 sentences per suggestion, no more.
 - Reference SOURCES. Note which context data informed each suggestion.
+- For source_refs: if the source is external (a digest snippet, blog post, or article — NOT Robin's own writings, notes, or vault), format it as "description|URL" so it can be linked. Robin's own content should be plain text with no URL.
 
 Today's focus lens: "${angle}" — ${ANGLE_DESCRIPTIONS[angle]}
 

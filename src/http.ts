@@ -26,6 +26,22 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 }
 
+function renderSourceRef(ref: string): string {
+  const pipeIdx = ref.indexOf("|");
+  if (pipeIdx > 0) {
+    const text = ref.slice(0, pipeIdx).trim();
+    const url = ref.slice(pipeIdx + 1).trim();
+    if (url.startsWith("http")) {
+      return `<a href="${esc(url)}">${esc(text)}</a>`;
+    }
+  }
+  return esc(ref);
+}
+
+function renderSourceRefs(refs: string[]): string {
+  return refs.map(renderSourceRef).join(" &middot; ");
+}
+
 function authMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void {
   if (!config.authToken) { next(); return; }
   const bearer = req.headers.authorization;
@@ -228,7 +244,7 @@ function renderDirectionPage(
       suggestionsHtml += `<h2 class="card-title">${esc(s.title)}</h2>`;
       suggestionsHtml += `<p class="card-body">${esc(s.body)}</p>`;
       if (s.source_refs?.length) {
-        suggestionsHtml += `<p class="refs">${s.source_refs.map((r) => esc(r)).join(" &middot; ")}</p>`;
+        suggestionsHtml += `<p class="refs">${renderSourceRefs(s.source_refs)}</p>`;
       }
       if (existing) {
         suggestionsHtml += `<div class="feedback-done">You marked this: <strong>${esc(existing)}</strong></div>`;
@@ -257,7 +273,7 @@ function renderDirectionPage(
         engageHtml += `<p class="engage-link"><a href="${esc(engageSuggestion.source_url)}">Read &amp; reply &rarr;</a></p>`;
       }
       if (engageSuggestion.source_refs?.length) {
-        engageHtml += `<p class="refs">${engageSuggestion.source_refs.map((r) => esc(r)).join(" &middot; ")}</p>`;
+        engageHtml += `<p class="refs">${renderSourceRefs(engageSuggestion.source_refs)}</p>`;
       }
       if (existing) {
         engageHtml += `<div class="feedback-done">You marked this: <strong>${esc(existing)}</strong></div>`;
@@ -289,7 +305,7 @@ h1{font-size:1.75rem;font-weight:600;letter-spacing:0;margin-bottom:4px}
 h2.card-title{font-size:.9375rem}
 h3.card-title{font-size:.875rem}
 .pill{display:inline-block;color:#fff;font-size:.6875rem;padding:1px 8px;border-radius:2px;text-transform:uppercase;letter-spacing:.04em;font-family:'IBM Plex Mono',monospace;font-weight:400}
-.refs{color:#6f6f6f;font-size:.75rem;margin-top:.5rem}
+.refs{color:#6f6f6f;font-size:.75rem;margin-top:.5rem}.refs a{color:#0f62fe;text-decoration:none}.refs a:hover{text-decoration:underline}
 .feedback-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:.75rem;align-items:center}
 .feedback-row button{background:#fff;border:1px solid #8d8d8d;border-radius:0;padding:4px 12px;font-size:.75rem;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;transition:background .15s,border-color .15s}
 .feedback-row button:hover{background:#e0e0e0;border-color:#161616}
