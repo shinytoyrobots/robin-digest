@@ -39,14 +39,16 @@ Key principles:
 
 Today's focus lens: "${angle}" — ${ANGLE_DESCRIPTIONS[angle]}
 
-Output ONLY a JSON array with this structure. The first 2-3 items are your regular suggestions. The FINAL item MUST be an "engage" suggestion — one specific article from the digest snippets that Robin should comment on, reply to, or engage with. Pick the article where Robin's perspective would add the most value to the conversation.
+Output ONLY a JSON array with this structure. The first 2-3 items are your regular suggestions. The FINAL 2 items should be "engage" suggestions — specific articles from the digest snippets that Robin should comment on, reply to, or engage with. Pick articles where Robin's perspective would add the most value to the conversation.
 
-For the engage suggestion:
+For the engage suggestions:
+- Pick 2 DIFFERENT articles. Do not suggest the same article twice.
 - ONLY pick articles published within the last 7 days. Check the date shown in brackets. Do NOT pick old articles — engagement on stale content has low value.
 - STRONGLY prefer articles marked [COMMENTABLE] — these have comment sections where Robin can reply directly.
 - If you pick a [COMMENTABLE] article, suggest replying in the comments.
 - If no [COMMENTABLE] article is a good fit and you pick a [NO COMMENTS] article, suggest engaging via LinkedIn or X instead, and note this in the body.
-- If no articles from the last 7 days are worth engaging with, omit the engage suggestion entirely.
+- If only 1 article from the last 7 days is worth engaging with, include just 1 engage item.
+- If no articles from the last 7 days are worth engaging with, omit engage suggestions entirely.
 
 [
   {
@@ -57,6 +59,13 @@ For the engage suggestion:
   },
   {
     "title": "Reply to [article title]",
+    "body": "Why this article deserves Robin's engagement and what angle to take",
+    "source_refs": ["article title", "source name"],
+    "source_url": "URL of the article",
+    "category": "engage"
+  },
+  {
+    "title": "Reply to [different article title]",
     "body": "Why this article deserves Robin's engagement and what angle to take",
     "source_refs": ["article title", "source name"],
     "source_url": "URL of the article",

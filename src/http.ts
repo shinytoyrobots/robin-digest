@@ -233,7 +233,7 @@ function renderDirectionPage(
     suggestionsHtml += `<p class="lens">Today&rsquo;s lens: <strong>${esc(direction.focus_angle.replace(/-/g, " "))}</strong></p>`;
 
     const regularSuggestions = suggestions.filter(s => s.category !== "engage");
-    const engageSuggestion = suggestions.find(s => s.category === "engage");
+    const engageSuggestions = suggestions.filter(s => s.category === "engage");
 
     regularSuggestions.forEach((s, i) => {
       const color = CATEGORY_COLORS[s.category] || "#6f6f6f";
@@ -260,32 +260,35 @@ function renderDirectionPage(
       suggestionsHtml += `</div>`;
     });
 
-    if (engageSuggestion) {
-      const engageIndex = suggestions.indexOf(engageSuggestion);
-      const existing = feedbackMap.get(engageIndex);
+    if (engageSuggestions.length > 0) {
       engageHtml += `<section class="engage-section">`;
       engageHtml += `<h2 class="section-heading">Go engage</h2>`;
-      engageHtml += `<div class="card engage-card">`;
-      engageHtml += `<span class="pill" style="background:${CATEGORY_COLORS.engage}">${esc(engageSuggestion.category)}</span>`;
-      engageHtml += `<h2 class="card-title">${esc(engageSuggestion.title)}</h2>`;
-      engageHtml += `<p class="card-body">${esc(engageSuggestion.body)}</p>`;
-      if (engageSuggestion.source_url) {
-        engageHtml += `<p class="engage-link"><a href="${esc(engageSuggestion.source_url)}">Read &amp; reply &rarr;</a></p>`;
-      }
-      if (engageSuggestion.source_refs?.length) {
-        engageHtml += `<p class="refs">${renderSourceRefs(engageSuggestion.source_refs)}</p>`;
-      }
-      if (existing) {
-        engageHtml += `<div class="feedback-done">You marked this: <strong>${esc(existing)}</strong></div>`;
-      } else {
-        engageHtml += `<div class="feedback-row" data-direction="${direction.id}" data-index="${engageIndex}">`;
-        engageHtml += `<button data-reaction="useful">Useful</button>`;
-        engageHtml += `<button data-reaction="done">Done</button>`;
-        engageHtml += `<button data-reaction="not_relevant">Not relevant</button>`;
-        engageHtml += `<input type="text" placeholder="Optional note..." class="note-input">`;
+      for (const engageSuggestion of engageSuggestions) {
+        const engageIndex = suggestions.indexOf(engageSuggestion);
+        const existing = feedbackMap.get(engageIndex);
+        engageHtml += `<div class="card engage-card">`;
+        engageHtml += `<span class="pill" style="background:${CATEGORY_COLORS.engage}">${esc(engageSuggestion.category)}</span>`;
+        engageHtml += `<h2 class="card-title">${esc(engageSuggestion.title)}</h2>`;
+        engageHtml += `<p class="card-body">${esc(engageSuggestion.body)}</p>`;
+        if (engageSuggestion.source_url) {
+          engageHtml += `<p class="engage-link"><a href="${esc(engageSuggestion.source_url)}">Read &amp; reply &rarr;</a></p>`;
+        }
+        if (engageSuggestion.source_refs?.length) {
+          engageHtml += `<p class="refs">${renderSourceRefs(engageSuggestion.source_refs)}</p>`;
+        }
+        if (existing) {
+          engageHtml += `<div class="feedback-done">You marked this: <strong>${esc(existing)}</strong></div>`;
+        } else {
+          engageHtml += `<div class="feedback-row" data-direction="${direction.id}" data-index="${engageIndex}">`;
+          engageHtml += `<button data-reaction="useful">Useful</button>`;
+          engageHtml += `<button data-reaction="done">Done</button>`;
+          engageHtml += `<button data-reaction="not_relevant">Not relevant</button>`;
+          engageHtml += `<input type="text" placeholder="Optional note..." class="note-input">`;
+          engageHtml += `</div>`;
+        }
         engageHtml += `</div>`;
       }
-      engageHtml += `</div></section>`;
+      engageHtml += `</section>`;
     }
   }
 
