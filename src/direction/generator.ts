@@ -7,6 +7,7 @@ export interface Suggestion {
   title: string;
   body: string;
   source_refs: string[];
+  source_url?: string;
   category: string;
 }
 
@@ -20,6 +21,7 @@ function parseResponse(raw: string): Suggestion[] {
     title: String(item.title || "Untitled"),
     body: String(item.body || ""),
     source_refs: Array.isArray(item.source_refs) ? item.source_refs.map(String) : [],
+    source_url: item.source_url ? String(item.source_url) : undefined,
     category: String(item.category || "creative"),
   }));
 }

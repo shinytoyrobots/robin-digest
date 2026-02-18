@@ -38,13 +38,21 @@ Key principles:
 
 Today's focus lens: "${angle}" — ${ANGLE_DESCRIPTIONS[angle]}
 
-Output ONLY a JSON array of 2-3 suggestion objects with this structure:
+Output ONLY a JSON array with this structure. The first 2-3 items are your regular suggestions. The FINAL item MUST be an "engage" suggestion — one specific article from the digest snippets that Robin should comment on, reply to, or engage with on Substack. Pick the article where Robin's perspective would add the most value to the conversation.
+
 [
   {
     "title": "Short imperative title",
     "body": "2-3 sentence explanation with specific references",
     "source_refs": ["what sources/data informed this"],
     "category": "writing" | "learning" | "project" | "connection" | "creative"
+  },
+  {
+    "title": "Reply to [article title]",
+    "body": "Why this article deserves Robin's engagement and what angle to take",
+    "source_refs": ["article title", "source name"],
+    "source_url": "URL of the article",
+    "category": "engage"
   }
 ]
 
@@ -62,7 +70,7 @@ No markdown, no preamble, no explanation — just the JSON array.`;
   if (context.recentDigestSnippets.length > 0) {
     parts.push("\n## Recent digest snippets (curated this week)");
     for (const s of context.recentDigestSnippets) {
-      parts.push(`- "${s.insight}" — ${s.source}`);
+      parts.push(`- "${s.insight}" — ${s.source} (${s.source_url})`);
     }
   }
 

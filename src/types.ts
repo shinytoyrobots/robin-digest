@@ -60,6 +60,7 @@ export interface CuratedSnippet {
   source_url: string;
   source_name: string;
   source_article_id?: number;
+  is_fresh?: boolean;
 }
 
 export interface FeedInfo {

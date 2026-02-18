@@ -3,7 +3,7 @@ name: Product Management Blogs
 index_url: https://cpoclub.com/career/best-product-management-blogs/
 max_snippets: 3
 curation_prompt: |
-  You are curating a weekly digest of product management blog posts for a senior PM.
+  You are curating a daily digest of product management blog posts for a senior PM.
   Select the 2-3 most insightful and actionable pieces. For each, provide:
   - A concise title
   - A 2-3 sentence summary of the key argument or finding

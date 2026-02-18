@@ -49,49 +49,94 @@ app.get("/", (_req, res) => {
 
 app.get("/digests", (_req, res) => {
   const db = getDb();
-  const digests = db.prepare(
+
+  // Get today's digests
+  const todayDigests = db.prepare(
     "SELECT d.*, p.name as pipeline_name FROM digests d " +
     "JOIN pipelines p ON d.pipeline_id = p.id " +
-    "WHERE d.created_at > datetime('now', '-7 days') " +
+    "WHERE d.created_at > datetime('now', '-1 day') " +
     "ORDER BY d.created_at DESC"
   ).all() as { id: number; pipeline_id: string; title: string; created_at: string; pipeline_name: string }[];
 
-  let body = "";
-  if (digests.length === 0) {
-    body = "<p>No digests this week yet.</p>";
-  } else {
-    for (const digest of digests) {
-      const snippets = db.prepare(
-        "SELECT key_insight, source_name, source_url FROM snippets WHERE digest_id = ? ORDER BY position"
-      ).all(digest.id) as { key_insight: string; source_name: string; source_url: string }[];
+  // Get yesterday's digests
+  const yesterdayDigests = db.prepare(
+    "SELECT d.*, p.name as pipeline_name FROM digests d " +
+    "JOIN pipelines p ON d.pipeline_id = p.id " +
+    "WHERE d.created_at <= datetime('now', '-1 day') AND d.created_at > datetime('now', '-2 days') " +
+    "ORDER BY d.created_at DESC"
+  ).all() as { id: number; pipeline_id: string; title: string; created_at: string; pipeline_name: string }[];
 
-      body += "<section>";
-      body += "<h2>" + esc(digest.title) + "</h2>";
-      body += "<p class=\"meta\">" + esc(digest.pipeline_name) + " &middot; " + formatDate(digest.created_at) + "</p>";
-      body += "<ul>";
-      for (const s of snippets) {
-        body += "<li>" + esc(s.key_insight) + " <span class=\"source\">&mdash; <a href=\"" + esc(s.source_url) + "\">" + esc(s.source_name) + "</a></span></li>";
-      }
-      body += "</ul></section>";
+  type SnippetRow = { key_insight: string; source_name: string; source_url: string; is_fresh: number };
+
+  function renderDigestSection(digest: typeof todayDigests[0]): string {
+    const snippets = db.prepare(
+      "SELECT key_insight, source_name, source_url, is_fresh FROM snippets WHERE digest_id = ? ORDER BY position"
+    ).all(digest.id) as SnippetRow[];
+
+    let html = `<div class="digest-card">`;
+    html += `<h3 class="digest-title">${esc(digest.title)}</h3>`;
+    html += `<p class="digest-meta">${esc(digest.pipeline_name)} &middot; ${formatDate(digest.created_at)}</p>`;
+    html += `<ul class="snippet-list">`;
+    for (const s of snippets) {
+      const archiveTag = s.is_fresh === 0 ? ` <span class="archive-tag">from archive</span>` : "";
+      html += `<li>${esc(s.key_insight)}${archiveTag} <span class="source">&mdash; <a href="${esc(s.source_url)}">${esc(s.source_name)}</a></span></li>`;
+    }
+    html += `</ul></div>`;
+    return html;
+  }
+
+  let body = "";
+  if (todayDigests.length === 0 && yesterdayDigests.length === 0) {
+    body = `<p class="empty-state">No digests yet. Check back after 3:00 AM CT.</p>`;
+  } else {
+    if (todayDigests.length > 0) {
+      body += `<section class="digest-section"><h2 class="section-heading">Today</h2>`;
+      for (const d of todayDigests) body += renderDigestSection(d);
+      body += `</section>`;
+    }
+    if (yesterdayDigests.length > 0) {
+      body += `<section class="digest-section yesterday">`;
+      body += `<details><summary class="section-heading yesterday-toggle">Yesterday <span class="toggle-hint">${yesterdayDigests.length} digest${yesterdayDigests.length > 1 ? "s" : ""}</span></summary>`;
+      for (const d of yesterdayDigests) body += renderDigestSection(d);
+      body += `</details></section>`;
     }
   }
 
-  const html = "<!DOCTYPE html><html><head><title>This Week's Digests</title>" +
-    "<style>" +
-    "body{font-family:system-ui,sans-serif;max-width:640px;margin:48px auto;padding:0 20px;color:#1a1a1a;line-height:1.6}" +
-    "h1{font-size:1.4rem;margin-bottom:.25rem}" +
-    ".subtitle{color:#666;font-size:.9rem;margin-bottom:2rem}" +
-    "h2{font-size:1.1rem;margin-bottom:.25rem}" +
-    ".meta{color:#888;font-size:.8rem;margin-top:0}" +
-    "ul{padding-left:1.25rem}li{margin:12px 0}" +
-    ".source{color:#888;font-size:.85rem}.source a{color:#666}" +
-    "section{margin-bottom:2rem;padding-bottom:1.5rem;border-bottom:1px solid #eee}" +
-    "section:last-child{border-bottom:none}" +
-    "</style></head><body>" +
-    "<h1>This Week's Digests</h1>" +
-    "<p class=\"subtitle\">Key insights curated from PM and industry blogs</p>" +
-    body +
-    "</body></html>";
+  const html = `<!DOCTYPE html><html><head><title>Daily Digests</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'IBM Plex Sans',sans-serif;max-width:672px;margin:0 auto;padding:48px 16px;background:#fff;color:#161616;line-height:1.5;font-size:.875rem}
+h1{font-size:1.75rem;font-weight:600;letter-spacing:0;margin-bottom:4px}
+.subtitle{color:#525252;font-size:.875rem;margin-bottom:2rem}
+.section-heading{font-size:1rem;font-weight:600;color:#161616;margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid #e0e0e0}
+.yesterday-toggle{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px}
+.yesterday-toggle::-webkit-details-marker{display:none}
+.yesterday-toggle::before{content:'';display:inline-block;width:0;height:0;border-left:5px solid #525252;border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform .15s}
+details[open]>.yesterday-toggle::before{transform:rotate(90deg)}
+.toggle-hint{color:#6f6f6f;font-weight:400;font-size:.75rem}
+.digest-section{margin-bottom:2rem}
+.yesterday{border-top:1px solid #e0e0e0;padding-top:1rem}
+.digest-card{background:#f4f4f4;border-left:3px solid #0f62fe;padding:1rem 1.25rem;margin-bottom:1rem;border-radius:0}
+.digest-title{font-size:.9375rem;font-weight:600;margin-bottom:2px}
+.digest-meta{color:#6f6f6f;font-size:.75rem;margin-bottom:.75rem}
+.snippet-list{padding-left:1rem;list-style:none}
+.snippet-list li{margin:10px 0;position:relative;padding-left:.75rem}
+.snippet-list li::before{content:'';position:absolute;left:0;top:8px;width:4px;height:4px;background:#0f62fe;border-radius:50%}
+.source{color:#6f6f6f;font-size:.8125rem}
+.source a{color:#0f62fe;text-decoration:none}
+.source a:hover{text-decoration:underline}
+.archive-tag{display:inline-block;background:#e0e0e0;color:#525252;font-size:.6875rem;padding:1px 6px;border-radius:2px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.02em;vertical-align:middle;margin-left:4px}
+.empty-state{color:#6f6f6f;margin-top:2rem}
+.footer{margin-top:2.5rem;color:#a8a8a8;font-size:.75rem;border-top:1px solid #e0e0e0;padding-top:1rem}
+.footer a{color:#0f62fe;text-decoration:none}
+</style></head><body>
+<h1>Daily Digests</h1>
+<p class="subtitle">Key insights curated daily from newsletters and blogs</p>
+${body}
+<div class="footer">Generated at 3:00 AM CT &middot; <a href="/">robin-cannon.dev</a></div>
+</body></html>`;
 
   res.type("html").send(html);
 });
@@ -104,6 +149,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   project: "#059669",
   connection: "#d97706",
   creative: "#c026d3",
+  engage: "#e11d48",
 };
 
 type DirectionRow = { id: number; focus_angle: string; suggestions: string; created_at: string };
@@ -114,34 +160,32 @@ function renderHistorySection(
 ): string {
   if (pastDirections.length === 0) return "";
 
-  let html = `<div class="history"><h2 class="history-heading">Yesterday</h2>`;
+  let html = `<section class="history"><details><summary class="section-heading yesterday-toggle">Yesterday <span class="toggle-hint">${pastDirections.length} direction${pastDirections.length > 1 ? "s" : ""}</span></summary>`;
 
   for (const dir of pastDirections) {
     let suggestions: Suggestion[];
     try { suggestions = JSON.parse(dir.suggestions); } catch { suggestions = []; }
 
-    const dateLabel = formatDate(dir.created_at);
     const feedbackMap = feedbackByDirection.get(dir.id) ?? new Map();
 
-    html += `<details class="history-day"><summary>${esc(dateLabel)} &mdash; ${esc(dir.focus_angle.replace(/-/g, " "))}</summary>`;
+    html += `<p class="lens">Lens: <strong>${esc(dir.focus_angle.replace(/-/g, " "))}</strong></p>`;
 
     suggestions.forEach((s, i) => {
-      const color = CATEGORY_COLORS[s.category] || "#666";
+      const color = CATEGORY_COLORS[s.category] || "#6f6f6f";
       const reaction = feedbackMap.get(i);
-      html += `<div class="card history-card">`;
+      const isEngage = s.category === "engage";
+      html += `<div class="card${isEngage ? " engage-card" : ""}">`;
       html += `<span class="pill" style="background:${color}">${esc(s.category)}</span>`;
-      html += `<h3>${esc(s.title)}</h3>`;
-      html += `<p>${esc(s.body)}</p>`;
+      html += `<h3 class="card-title">${esc(s.title)}</h3>`;
+      html += `<p class="card-body">${esc(s.body)}</p>`;
       if (reaction) {
         html += `<div class="feedback-done">Marked: <strong>${esc(reaction.replace(/_/g, " "))}</strong></div>`;
       }
       html += `</div>`;
     });
-
-    html += `</details>`;
   }
 
-  html += `</div>`;
+  html += `</details></section>`;
   return html;
 }
 
@@ -155,9 +199,11 @@ function renderDirectionPage(
     timeZone: "America/Chicago",
   });
 
-  let body = "";
+  let suggestionsHtml = "";
+  let engageHtml = "";
+
   if (!direction) {
-    body = `<p class="empty">No direction generated yet today. Check back after 6:30 AM CT.</p>`;
+    suggestionsHtml = `<p class="empty-state">No direction generated yet today. Check back after 3:30 AM CT.</p>`;
   } else {
     let suggestions: Suggestion[];
     try {
@@ -166,66 +212,110 @@ function renderDirectionPage(
       suggestions = [];
     }
 
-    body += `<p class="lens">Today's lens: <strong>${esc(direction.focus_angle.replace(/-/g, " "))}</strong></p>`;
+    suggestionsHtml += `<p class="lens">Today&rsquo;s lens: <strong>${esc(direction.focus_angle.replace(/-/g, " "))}</strong></p>`;
 
-    suggestions.forEach((s, i) => {
-      const color = CATEGORY_COLORS[s.category] || "#666";
-      const existing = feedbackMap.get(i);
-      body += `<div class="card">`;
-      body += `<span class="pill" style="background:${color}">${esc(s.category)}</span>`;
-      body += `<h2>${esc(s.title)}</h2>`;
-      body += `<p>${esc(s.body)}</p>`;
+    const regularSuggestions = suggestions.filter(s => s.category !== "engage");
+    const engageSuggestion = suggestions.find(s => s.category === "engage");
+
+    regularSuggestions.forEach((s, i) => {
+      const color = CATEGORY_COLORS[s.category] || "#6f6f6f";
+      const originalIndex = suggestions.indexOf(s);
+      const existing = feedbackMap.get(originalIndex);
+      suggestionsHtml += `<div class="card">`;
+      suggestionsHtml += `<span class="pill" style="background:${color}">${esc(s.category)}</span>`;
+      suggestionsHtml += `<h2 class="card-title">${esc(s.title)}</h2>`;
+      suggestionsHtml += `<p class="card-body">${esc(s.body)}</p>`;
       if (s.source_refs?.length) {
-        body += `<p class="refs">${s.source_refs.map((r) => esc(r)).join(" &middot; ")}</p>`;
+        suggestionsHtml += `<p class="refs">${s.source_refs.map((r) => esc(r)).join(" &middot; ")}</p>`;
       }
       if (existing) {
-        body += `<div class="feedback-done">You marked this: <strong>${esc(existing)}</strong></div>`;
+        suggestionsHtml += `<div class="feedback-done">You marked this: <strong>${esc(existing)}</strong></div>`;
       } else {
-        body += `<div class="feedback-row" data-direction="${direction.id}" data-index="${i}">`;
-        body += `<button data-reaction="useful">Useful</button>`;
-        body += `<button data-reaction="inspired">Inspired</button>`;
-        body += `<button data-reaction="done">Done</button>`;
-        body += `<button data-reaction="not_relevant">Not relevant</button>`;
-        body += `<input type="text" placeholder="Optional note..." class="note-input">`;
-        body += `</div>`;
+        suggestionsHtml += `<div class="feedback-row" data-direction="${direction.id}" data-index="${originalIndex}">`;
+        suggestionsHtml += `<button data-reaction="useful">Useful</button>`;
+        suggestionsHtml += `<button data-reaction="inspired">Inspired</button>`;
+        suggestionsHtml += `<button data-reaction="done">Done</button>`;
+        suggestionsHtml += `<button data-reaction="not_relevant">Not relevant</button>`;
+        suggestionsHtml += `<input type="text" placeholder="Optional note..." class="note-input">`;
+        suggestionsHtml += `</div>`;
       }
-      body += `</div>`;
+      suggestionsHtml += `</div>`;
     });
+
+    if (engageSuggestion) {
+      const engageIndex = suggestions.indexOf(engageSuggestion);
+      const existing = feedbackMap.get(engageIndex);
+      engageHtml += `<section class="engage-section">`;
+      engageHtml += `<h2 class="section-heading">Go engage</h2>`;
+      engageHtml += `<div class="card engage-card">`;
+      engageHtml += `<span class="pill" style="background:${CATEGORY_COLORS.engage}">${esc(engageSuggestion.category)}</span>`;
+      engageHtml += `<h2 class="card-title">${esc(engageSuggestion.title)}</h2>`;
+      engageHtml += `<p class="card-body">${esc(engageSuggestion.body)}</p>`;
+      if (engageSuggestion.source_url) {
+        engageHtml += `<p class="engage-link"><a href="${esc(engageSuggestion.source_url)}">Read &amp; reply &rarr;</a></p>`;
+      }
+      if (engageSuggestion.source_refs?.length) {
+        engageHtml += `<p class="refs">${engageSuggestion.source_refs.map((r) => esc(r)).join(" &middot; ")}</p>`;
+      }
+      if (existing) {
+        engageHtml += `<div class="feedback-done">You marked this: <strong>${esc(existing)}</strong></div>`;
+      } else {
+        engageHtml += `<div class="feedback-row" data-direction="${direction.id}" data-index="${engageIndex}">`;
+        engageHtml += `<button data-reaction="useful">Useful</button>`;
+        engageHtml += `<button data-reaction="done">Done</button>`;
+        engageHtml += `<button data-reaction="not_relevant">Not relevant</button>`;
+        engageHtml += `<input type="text" placeholder="Optional note..." class="note-input">`;
+        engageHtml += `</div>`;
+      }
+      engageHtml += `</div></section>`;
+    }
   }
 
   return `<!DOCTYPE html><html><head><title>Daily Direction</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap" rel="stylesheet">
 <style>
-body{font-family:system-ui,sans-serif;max-width:640px;margin:48px auto;padding:0 20px;color:#1a1a1a;line-height:1.6;background:#fafaf9}
-h1{font-size:1.4rem;margin-bottom:0}
-.date{color:#888;font-size:.9rem;margin-top:.25rem}
-.lens{color:#555;font-size:.95rem;margin:1.5rem 0}
-.card{background:#fff;border:1px solid #e5e5e5;border-radius:8px;padding:1.25rem;margin-bottom:1.25rem}
-.card h2{font-size:1.05rem;margin:.5rem 0 .25rem}
-.card p{margin:.5rem 0;font-size:.95rem}
-.pill{display:inline-block;color:#fff;font-size:.7rem;padding:2px 8px;border-radius:9999px;text-transform:uppercase;letter-spacing:.05em}
-.refs{color:#888;font-size:.8rem}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'IBM Plex Sans',sans-serif;max-width:672px;margin:0 auto;padding:48px 16px;background:#fff;color:#161616;line-height:1.5;font-size:.875rem}
+h1{font-size:1.75rem;font-weight:600;letter-spacing:0;margin-bottom:4px}
+.date{color:#525252;font-size:.875rem;margin-top:0}
+.lens{color:#525252;font-size:.875rem;margin:1.25rem 0 .75rem}
+.section-heading{font-size:1rem;font-weight:600;color:#161616;margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid #e0e0e0}
+.card{background:#f4f4f4;border-left:3px solid #0f62fe;padding:1rem 1.25rem;margin-bottom:1rem}
+.card-title{font-size:.9375rem;font-weight:600;margin:.375rem 0 .25rem}
+.card-body{margin:.375rem 0;font-size:.875rem;color:#161616}
+h2.card-title{font-size:.9375rem}
+h3.card-title{font-size:.875rem}
+.pill{display:inline-block;color:#fff;font-size:.6875rem;padding:1px 8px;border-radius:2px;text-transform:uppercase;letter-spacing:.04em;font-family:'IBM Plex Mono',monospace;font-weight:400}
+.refs{color:#6f6f6f;font-size:.75rem;margin-top:.5rem}
 .feedback-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:.75rem;align-items:center}
-.feedback-row button{background:#f5f5f4;border:1px solid #d6d3d1;border-radius:6px;padding:4px 10px;font-size:.8rem;cursor:pointer;transition:background .15s}
-.feedback-row button:hover{background:#e7e5e4}
-.feedback-row button.selected{background:#059669;color:#fff;border-color:#059669}
-.note-input{flex:1;min-width:120px;border:1px solid #d6d3d1;border-radius:6px;padding:4px 8px;font-size:.8rem}
-.feedback-done{color:#059669;font-size:.85rem;margin-top:.75rem}
-.empty{color:#888;margin-top:2rem}
-.history{margin-top:2.5rem;border-top:1px solid #e5e5e5;padding-top:1.5rem}
-.history-heading{font-size:1.1rem;color:#555;margin-bottom:1rem}
-.history-day{margin-bottom:1rem}
-.history-day summary{cursor:pointer;font-size:.95rem;color:#444;padding:.5rem 0}
-.history-day summary:hover{color:#1a1a1a}
-.history-card h3{font-size:.95rem;margin:.5rem 0 .25rem}
-.footer{margin-top:2.5rem;color:#aaa;font-size:.8rem;border-top:1px solid #eee;padding-top:1rem}
-.footer a{color:#888}
+.feedback-row button{background:#fff;border:1px solid #8d8d8d;border-radius:0;padding:4px 12px;font-size:.75rem;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;transition:background .15s,border-color .15s}
+.feedback-row button:hover{background:#e0e0e0;border-color:#161616}
+.feedback-row button:focus{outline:2px solid #0f62fe;outline-offset:1px}
+.note-input{flex:1;min-width:120px;border:1px solid #8d8d8d;border-radius:0;padding:4px 8px;font-size:.75rem;font-family:'IBM Plex Sans',sans-serif}
+.note-input:focus{outline:2px solid #0f62fe;outline-offset:-2px}
+.feedback-done{color:#198038;font-size:.8125rem;margin-top:.75rem}
+.engage-section{margin-top:2rem;padding-top:1rem;border-top:1px solid #e0e0e0}
+.engage-card{border-left-color:#e11d48}
+.engage-link{margin-top:.5rem}
+.engage-link a{color:#e11d48;font-weight:500;text-decoration:none;font-size:.875rem}
+.engage-link a:hover{text-decoration:underline}
+.empty-state{color:#6f6f6f;margin-top:2rem}
+.history{margin-top:2rem;border-top:1px solid #e0e0e0;padding-top:1rem}
+.yesterday-toggle{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px}
+.yesterday-toggle::-webkit-details-marker{display:none}
+.yesterday-toggle::before{content:'';display:inline-block;width:0;height:0;border-left:5px solid #525252;border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform .15s}
+details[open]>.yesterday-toggle::before{transform:rotate(90deg)}
+.toggle-hint{color:#6f6f6f;font-weight:400;font-size:.75rem}
+.footer{margin-top:2.5rem;color:#a8a8a8;font-size:.75rem;border-top:1px solid #e0e0e0;padding-top:1rem}
+.footer a{color:#0f62fe;text-decoration:none}
 </style></head><body>
 <h1>Daily Direction</h1>
 <p class="date">${esc(today)}</p>
-${body}
+${suggestionsHtml}
+${engageHtml}
 ${historyHtml}
-<div class="footer">Generated at 6:30 AM CT &middot; <a href="/">robin-cannon.dev</a></div>
+<div class="footer">Generated at 3:30 AM CT &middot; <a href="/">robin-cannon.dev</a></div>
 <script>
 document.querySelectorAll('.feedback-row button').forEach(btn => {
   btn.addEventListener('click', async function() {
@@ -241,7 +331,7 @@ document.querySelectorAll('.feedback-row button').forEach(btn => {
         body: JSON.stringify({ direction_id: parseInt(directionId), suggestion_index: index, reaction, note })
       });
       if (res.ok) {
-        row.innerHTML = '<div class="feedback-done">Thanks! Marked as: <strong>' + reaction.replace('_', ' ') + '</strong></div>';
+        row.innerHTML = '<div class="feedback-done">Marked: <strong>' + reaction.replace('_', ' ') + '</strong></div>';
       }
     } catch(e) { console.error(e); }
   });

@@ -64,15 +64,16 @@ export async function runPipeline(pipelineId: string): Promise<PipelineRunResult
       digestId = digestResult.lastInsertRowid as number;
 
       const insertSnippet = db.prepare(`
-        INSERT INTO snippets (digest_id, key_insight, source_article_id, source_url, source_name, position)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO snippets (digest_id, key_insight, source_article_id, source_url, source_name, position, is_fresh)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `);
 
       const tx = db.transaction(() => {
         result.snippets.forEach((s, i) => {
           insertSnippet.run(
             digestId, s.key_insight,
-            s.source_article_id || null, s.source_url, s.source_name, i
+            s.source_article_id || null, s.source_url, s.source_name, i,
+            s.is_fresh === false ? 0 : 1
           );
         });
       });

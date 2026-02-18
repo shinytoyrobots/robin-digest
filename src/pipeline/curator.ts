@@ -6,11 +6,18 @@ import type { Pipeline, Article, CuratedSnippet } from "../types.js";
  * Curate articles into key insights using Claude.
  * Each insight is one sentence distilled from one article.
  * If an article can't be reduced to a clear insight, it's skipped.
+ * Prioritizes articles published since the last digest run.
  */
 export async function curateDigest(
   pipeline: Pipeline
 ): Promise<{ title: string; snippets: CuratedSnippet[] } | null> {
   const db = getDb();
+
+  // Find when the last digest was created for this pipeline
+  const lastDigest = db.prepare(
+    `SELECT created_at FROM digests WHERE pipeline_id = ? ORDER BY created_at DESC LIMIT 1`
+  ).get(pipeline.id) as { created_at: string } | undefined;
+  const lastRunAt = lastDigest?.created_at ?? null;
 
   // Get articles not yet featured in any snippet, from the last 14 days
   const articles = db.prepare(`
@@ -29,10 +36,18 @@ export async function curateDigest(
     return null;
   }
 
-  console.error(`[curator] Curating ${articles.length} articles for ${pipeline.id}`);
+  // Tag articles as fresh (published since last run) or from archive
+  const taggedArticles = articles.map(a => ({
+    ...a,
+    is_fresh: lastRunAt ? (a.published_at ?? a.fetched_at) > lastRunAt : true,
+  }));
 
-  const articleList = articles.map((a, i) => (
-    `[${i + 1}] "${a.title}" — ${a.source_name}\n` +
+  const freshCount = taggedArticles.filter(a => a.is_fresh).length;
+  const archiveCount = taggedArticles.length - freshCount;
+  console.error(`[curator] Curating ${taggedArticles.length} articles for ${pipeline.id} (${freshCount} fresh, ${archiveCount} archive)`);
+
+  const articleList = taggedArticles.map((a, i) => (
+    `[${i + 1}] ${a.is_fresh ? "[NEW]" : "[ARCHIVE]"} "${a.title}" — ${a.source_name}\n` +
     `URL: ${a.url}\n` +
     `Content: ${a.content.slice(0, 1500)}\n`
   )).join("\n---\n");
@@ -41,13 +56,15 @@ export async function curateDigest(
     `Select up to ${pipeline.max_snippets} articles worth keeping. For each, distill ONE key insight sentence.\n` +
     `Rules:\n` +
     `- One article per source (blog). Maximize source diversity.\n` +
+    `- STRONGLY prefer articles marked [NEW] over [ARCHIVE]. Only select [ARCHIVE] articles if they are significantly more insightful than any available [NEW] article.\n` +
     `- If you can't distill a clear, actionable insight from an article, skip it entirely.\n` +
-    `- Each key_insight must be a single sentence — specific, actionable, and self-contained.\n\n` +
+    `- Each key_insight must be a single sentence — specific, actionable, and self-contained.\n` +
+    `- In your response, set "is_fresh" to true for [NEW] articles and false for [ARCHIVE] articles.\n\n` +
     `Respond in this exact JSON format:\n` +
     `{\n` +
     `  "title": "Short digest title",\n` +
     `  "insights": [\n` +
-    `    { "article_number": 1, "key_insight": "One sentence insight." }\n` +
+    `    { "article_number": 1, "key_insight": "One sentence insight.", "is_fresh": true }\n` +
     `  ]\n` +
     `}`;
 
@@ -62,14 +79,14 @@ export async function curateDigest(
   try {
     const parsed = JSON.parse(jsonMatch[0]) as {
       title: string;
-      insights: { article_number: number; key_insight: string }[];
+      insights: { article_number: number; key_insight: string; is_fresh?: boolean }[];
     };
 
     // Enforce one snippet per source
     const seenSources = new Set<string>();
     const snippets: CuratedSnippet[] = [];
     for (const s of parsed.insights) {
-      const article = articles[s.article_number - 1];
+      const article = taggedArticles[s.article_number - 1];
       if (!article) continue;
       const sourceName = article.source_name;
       if (seenSources.has(sourceName)) continue;
@@ -79,6 +96,7 @@ export async function curateDigest(
         source_url: article.url,
         source_name: sourceName,
         source_article_id: article.id,
+        is_fresh: article.is_fresh,
       });
     }
 

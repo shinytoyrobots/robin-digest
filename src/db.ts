@@ -68,7 +68,8 @@ function initSchema(db: Database.Database): void {
       source_article_id INTEGER REFERENCES articles(id),
       source_url TEXT NOT NULL,
       source_name TEXT NOT NULL,
-      position INTEGER NOT NULL DEFAULT 0
+      position INTEGER NOT NULL DEFAULT 0,
+      is_fresh INTEGER NOT NULL DEFAULT 1
     );
 
     CREATE TABLE IF NOT EXISTS daily_directions (
@@ -88,6 +89,14 @@ function initSchema(db: Database.Database): void {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+
+  // Migrations — add columns that may not exist on older databases
+  const hasIsFresh = db.prepare(
+    "SELECT COUNT(*) as c FROM pragma_table_info('snippets') WHERE name = 'is_fresh'"
+  ).get() as { c: number };
+  if (hasIsFresh.c === 0) {
+    db.exec("ALTER TABLE snippets ADD COLUMN is_fresh INTEGER NOT NULL DEFAULT 1");
+  }
 
   // FTS table — created separately since virtual tables don't support IF NOT EXISTS in all builds
   const ftsExists = db.prepare(

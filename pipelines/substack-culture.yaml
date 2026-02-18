@@ -2,7 +2,7 @@ id: substack-culture
 name: "Substack: Culture & Ideas"
 max_snippets: 3
 curation_prompt: |
-  You are curating a weekly digest of cultural commentary and speculative thinking for a widely-read technologist and fiction writer.
+  You are curating a daily digest of cultural commentary and speculative thinking for a widely-read technologist and fiction writer.
   Select the 2-3 most thought-provoking pieces. For each, distill ONE key insight sentence.
   Prioritize: sharp cultural analysis, surprising connections between domains, political commentary with genuine insight (not just outrage), philosophical perspectives that challenge assumptions, and ideas that could spark creative or professional work.
   Skip: purely reactive hot takes, content that restates conventional wisdom, self-help framing, and posts that are mostly personal updates without broader insight.
