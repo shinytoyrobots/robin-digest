@@ -26,7 +26,7 @@ export async function curateDigest(
     JOIN sources s ON a.source_id = s.id
     WHERE s.pipeline_id = ?
       AND a.id NOT IN (SELECT source_article_id FROM snippets WHERE source_article_id IS NOT NULL)
-      AND a.fetched_at > datetime('now', '-14 days')
+      AND a.fetched_at > datetime('now', '-10 days')
     ORDER BY a.fetched_at DESC
     LIMIT 50
   `).all(pipeline.id) as (Article & { source_name: string })[];
@@ -56,7 +56,7 @@ export async function curateDigest(
     `Select up to ${pipeline.max_snippets} articles worth keeping. For each, distill ONE key insight sentence.\n` +
     `Rules:\n` +
     `- One article per source (blog). Maximize source diversity.\n` +
-    `- STRONGLY prefer articles marked [NEW] over [ARCHIVE]. Only select [ARCHIVE] articles if they are significantly more insightful than any available [NEW] article.\n` +
+    `- Prefer articles marked [NEW] over [ARCHIVE] when quality is similar, but don't skip good [ARCHIVE] content — archive articles are still unpublished in this digest.\n` +
     `- If you can't distill a clear, actionable insight from an article, skip it entirely.\n` +
     `- Each key_insight must be a single sentence — specific, actionable, and self-contained.\n` +
     `- In your response, set "is_fresh" to true for [NEW] articles and false for [ARCHIVE] articles.\n\n` +
