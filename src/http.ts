@@ -528,9 +528,13 @@ app.delete("/admin/delete-source", express.json(), authMiddleware, (req, res) =>
     res.status(400).json({ error: "pipeline_id and url required" });
     return;
   }
-  const db = getDb();
-  const result = db.prepare("DELETE FROM sources WHERE pipeline_id = ? AND url = ?").run(pipeline_id, url);
-  res.json({ pipeline_id, url, deleted: result.changes });
+  try {
+    const db = getDb();
+    const result = db.prepare("DELETE FROM sources WHERE pipeline_id = ? AND url = ?").run(pipeline_id, url);
+    res.json({ pipeline_id, url, deleted: result.changes });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
 });
 
 app.post("/admin/run-pipeline", express.json(), authMiddleware, async (req, res) => {

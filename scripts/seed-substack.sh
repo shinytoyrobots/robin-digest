@@ -20,10 +20,12 @@ delete_source() {
   local pipeline_id="$1"
   local url="$2"
   echo "Removing $url from $pipeline_id..."
-  curl -s -X DELETE "$BASE_URL/admin/delete-source" \
+  local response
+  response=$(curl -s -X DELETE "$BASE_URL/admin/delete-source" \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $AUTH_TOKEN" \
-    -d "{\"pipeline_id\": \"$pipeline_id\", \"url\": \"$url\"}" | jq .
+    -d "{\"pipeline_id\": \"$pipeline_id\", \"url\": \"$url\"}")
+  echo "$response" | jq . 2>/dev/null || echo "  Raw response: $response"
 }
 
 # --- Removals ---
