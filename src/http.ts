@@ -86,10 +86,23 @@ app.get("/digests", (_req, res) => {
 
   type SnippetRow = { key_insight: string; source_name: string; source_url: string; is_fresh: number };
 
+  // Batch-fetch all snippets for all digests in one query
+  const allDigests = [...todayDigests, ...yesterdayDigests];
+  const snippetsByDigest = new Map<number, SnippetRow[]>();
+  if (allDigests.length > 0) {
+    const ids = allDigests.map(d => d.id);
+    const placeholders = ids.map(() => "?").join(",");
+    const allSnippets = db.prepare(
+      `SELECT digest_id, key_insight, source_name, source_url, is_fresh FROM snippets WHERE digest_id IN (${placeholders}) ORDER BY digest_id, position`
+    ).all(...ids) as (SnippetRow & { digest_id: number })[];
+    for (const s of allSnippets) {
+      if (!snippetsByDigest.has(s.digest_id)) snippetsByDigest.set(s.digest_id, []);
+      snippetsByDigest.get(s.digest_id)!.push(s);
+    }
+  }
+
   function renderDigestSection(digest: typeof todayDigests[0]): string {
-    const snippets = db.prepare(
-      "SELECT key_insight, source_name, source_url, is_fresh FROM snippets WHERE digest_id = ? ORDER BY position"
-    ).all(digest.id) as SnippetRow[];
+    const snippets = snippetsByDigest.get(digest.id) ?? [];
 
     let html = `<div class="digest-card">`;
     html += `<h3 class="digest-title">${esc(digest.title)}</h3>`;

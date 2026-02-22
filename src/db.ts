@@ -90,6 +90,16 @@ function initSchema(db: Database.Database): void {
     );
   `);
 
+  // Indexes
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_sources_pipeline_id ON sources(pipeline_id);
+    CREATE INDEX IF NOT EXISTS idx_articles_source_id ON articles(source_id);
+    CREATE INDEX IF NOT EXISTS idx_articles_fetched_at ON articles(fetched_at);
+    CREATE INDEX IF NOT EXISTS idx_digests_pipeline_id ON digests(pipeline_id);
+    CREATE INDEX IF NOT EXISTS idx_snippets_digest_id ON snippets(digest_id);
+    CREATE INDEX IF NOT EXISTS idx_direction_feedback_direction_id ON direction_feedback(direction_id);
+  `);
+
   // Migrations — add columns that may not exist on older databases
   const hasIsFresh = db.prepare(
     "SELECT COUNT(*) as c FROM pragma_table_info('snippets') WHERE name = 'is_fresh'"

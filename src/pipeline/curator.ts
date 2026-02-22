@@ -19,13 +19,14 @@ export async function curateDigest(
   ).get(pipeline.id) as { created_at: string } | undefined;
   const lastRunAt = lastDigest?.created_at ?? null;
 
-  // Get articles not yet featured in any snippet, from the last 14 days
+  // Get articles not yet featured in any snippet, from the last 10 days
   const articles = db.prepare(`
     SELECT a.*, s.name as source_name
     FROM articles a
     JOIN sources s ON a.source_id = s.id
+    LEFT JOIN snippets sn ON sn.source_article_id = a.id
     WHERE s.pipeline_id = ?
-      AND a.id NOT IN (SELECT source_article_id FROM snippets WHERE source_article_id IS NOT NULL)
+      AND sn.id IS NULL
       AND a.fetched_at > datetime('now', '-10 days')
     ORDER BY a.fetched_at DESC
     LIMIT 50

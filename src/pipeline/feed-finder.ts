@@ -16,25 +16,32 @@ export async function findFeeds(pipelineId: string): Promise<number> {
   ).all(pipelineId) as Source[];
 
   let found = 0;
+  const CONCURRENCY = 3;
+  const queue = [...sources];
 
-  for (const source of sources) {
-    try {
-      const feedInfo = await discoverFeed(source.url);
-      if (feedInfo) {
-        db.prepare(
-          "UPDATE sources SET feed_url = ?, feed_type = ? WHERE id = ?"
-        ).run(feedInfo.url, feedInfo.type, source.id);
-        console.error(`[feed-finder] Found ${feedInfo.type} feed for ${source.name}: ${feedInfo.url}`);
-        found++;
-      } else {
+  const workers = Array.from({ length: Math.min(CONCURRENCY, sources.length) }, async () => {
+    while (queue.length > 0) {
+      const source = queue.shift()!;
+      try {
+        const feedInfo = await discoverFeed(source.url);
+        if (feedInfo) {
+          db.prepare(
+            "UPDATE sources SET feed_url = ?, feed_type = ? WHERE id = ?"
+          ).run(feedInfo.url, feedInfo.type, source.id);
+          console.error(`[feed-finder] Found ${feedInfo.type} feed for ${source.name}: ${feedInfo.url}`);
+          found++;
+        } else {
+          db.prepare("UPDATE sources SET enabled = 0 WHERE id = ?").run(source.id);
+          console.error(`[feed-finder] No feed found for ${source.name}, disabling source`);
+        }
+      } catch (err) {
+        console.error(`[feed-finder] Error probing ${source.name}: ${err}`);
         db.prepare("UPDATE sources SET enabled = 0 WHERE id = ?").run(source.id);
-        console.error(`[feed-finder] No feed found for ${source.name}, disabling source`);
       }
-    } catch (err) {
-      console.error(`[feed-finder] Error probing ${source.name}: ${err}`);
-      db.prepare("UPDATE sources SET enabled = 0 WHERE id = ?").run(source.id);
     }
-  }
+  });
+
+  await Promise.allSettled(workers);
 
   return found;
 }
