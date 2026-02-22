@@ -530,8 +530,17 @@ app.delete("/admin/delete-source", express.json(), authMiddleware, (req, res) =>
   }
   try {
     const db = getDb();
-    const result = db.prepare("DELETE FROM sources WHERE pipeline_id = ? AND url = ?").run(pipeline_id, url);
-    res.json({ pipeline_id, url, deleted: result.changes });
+    const source = db.prepare("SELECT id FROM sources WHERE pipeline_id = ? AND url = ?").get(pipeline_id, url) as { id: number } | undefined;
+    if (!source) {
+      res.json({ pipeline_id, url, deleted: 0 });
+      return;
+    }
+    db.transaction(() => {
+      // Nullify snippet references to this source's articles before cascade-deleting
+      db.prepare("UPDATE snippets SET source_article_id = NULL WHERE source_article_id IN (SELECT id FROM articles WHERE source_id = ?)").run(source.id);
+      db.prepare("DELETE FROM sources WHERE id = ?").run(source.id);
+    })();
+    res.json({ pipeline_id, url, deleted: 1 });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
