@@ -16,6 +16,19 @@ seed() {
     -d "$json" | jq .
 }
 
+delete_source() {
+  local pipeline_id="$1"
+  local url="$2"
+  echo "Removing $url from $pipeline_id..."
+  curl -s -X DELETE "$BASE_URL/admin/delete-source" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $AUTH_TOKEN" \
+    -d "{\"pipeline_id\": \"$pipeline_id\", \"url\": \"$url\"}" | jq .
+}
+
+# --- Removals ---
+delete_source "substack-fiction" "https://cafelatteau.substack.com"
+
 # Design & Tech
 seed "substack-design-tech" '{
   "pipeline_id": "substack-design-tech",
@@ -26,7 +39,9 @@ seed "substack-design-tech" '{
     { "name": "Designverse", "url": "https://nassoskappa.substack.com" },
     { "name": "techletter", "url": "https://web3brew.substack.com" },
     { "name": "Zero Vector", "url": "https://zerovector.substack.com" },
-    { "name": "The Substack Post", "url": "https://newsletter.substack.com" }
+    { "name": "The Substack Post", "url": "https://newsletter.substack.com" },
+    { "name": "Design Systems Collective", "url": "https://www.designsystemscollective.com" },
+    { "name": "Cyberpunk Survival Guide", "url": "https://www.cyberpunksurvivalguide.com" }
   ]
 }'
 
@@ -43,7 +58,13 @@ seed "substack-culture" '{
     { "name": "Beautiful, Daring, Stupid", "url": "https://megoolders.substack.com" },
     { "name": "The Panicked Writer", "url": "https://ellieleonard.substack.com" },
     { "name": "Graphomane", "url": "https://nealstephenson.substack.com" },
-    { "name": "Orwell Daily", "url": "https://orwell.substack.com" }
+    { "name": "Orwell Daily", "url": "https://orwell.substack.com" },
+    { "name": "The Molehill", "url": "https://www.themolehill.net" },
+    { "name": "The Cognitive Dissident", "url": "https://cognitivedissident.substack.com" },
+    { "name": "Always The Horizon", "url": "https://alwaysthehorizon.substack.com" },
+    { "name": "Things Hidden in Complexity", "url": "https://hiddencomplexity.substack.com" },
+    { "name": "Noahpinion", "url": "https://www.noahpinion.blog" },
+    { "name": "THE CHOW", "url": "https://www.thechow.net" }
   ]
 }'
 
@@ -64,10 +85,20 @@ seed "substack-fiction" '{
     { "name": "The Pneumanaut", "url": "https://pneumanauts.substack.com" },
     { "name": "The Tearoom", "url": "https://mariellahunt.substack.com" },
     { "name": "Beth Brower", "url": "https://bethbrower.substack.com" },
-    { "name": "Maxwell George", "url": "https://cafelatteau.substack.com" },
     { "name": "Tom Cox", "url": "https://tomcox.substack.com" },
     { "name": "Punk Noir Magazine", "url": "https://www.punknoir.online" },
-    { "name": "Project Dreamcatcher", "url": "https://digitalisarchives.substack.com" }
+    { "name": "Project Dreamcatcher", "url": "https://digitalisarchives.substack.com" },
+    { "name": "Allison Ink", "url": "https://allisonink.substack.com" },
+    { "name": "Kairos", "url": "https://brianniemeier.substack.com" }
+  ]
+}'
+
+# PM Blogs (additions only — base sources seeded via src/seed.ts)
+seed "pm-blogs" '{
+  "pipeline_id": "pm-blogs",
+  "sources": [
+    { "name": "Product Growth", "url": "https://www.news.aakashg.com" },
+    { "name": "Marketing Ideas", "url": "https://www.marketingideas.com" }
   ]
 }'
 
