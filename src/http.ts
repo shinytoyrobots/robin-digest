@@ -546,21 +546,24 @@ app.delete("/admin/delete-source", express.json(), authMiddleware, (req, res) =>
   }
 });
 
-app.post("/admin/run-pipeline", express.json(), authMiddleware, async (req, res) => {
+app.post("/admin/run-pipeline", express.json(), authMiddleware, (req, res) => {
   const pipelineId = req.body?.pipeline_id as string | undefined;
-  try {
-    if (pipelineId) {
-      console.error(`[admin] Manual run: ${pipelineId}`);
-      const result = await runPipeline(pipelineId);
-      res.json(result);
-    } else {
-      console.error(`[admin] Manual run: all pipelines`);
-      const results = await runAllPipelines();
-      res.json(results);
-    }
-  } catch (err) {
-    console.error(`[admin] Pipeline run error:`, err);
-    res.status(500).json({ error: String(err) });
+  if (pipelineId) {
+    console.error(`[admin] Manual run: ${pipelineId}`);
+    res.status(202).json({ status: "accepted", pipeline_id: pipelineId });
+    runPipeline(pipelineId).then(result => {
+      console.error(`[admin] Completed ${pipelineId}: ${result.snippets_created} snippets, ${result.errors.length} errors`);
+    }).catch(err => {
+      console.error(`[admin] Pipeline error (${pipelineId}):`, err);
+    });
+  } else {
+    console.error(`[admin] Manual run: all pipelines`);
+    res.status(202).json({ status: "accepted", pipeline_id: "all" });
+    runAllPipelines().then(results => {
+      console.error(`[admin] Completed all pipelines: ${results.length} ran`);
+    }).catch(err => {
+      console.error(`[admin] Pipeline error (all):`, err);
+    });
   }
 });
 
