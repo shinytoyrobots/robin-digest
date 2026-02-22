@@ -1,0 +1,37 @@
+name: Run Pipelines
+
+on:
+  workflow_dispatch:
+    inputs:
+      pipeline_id:
+        description: "Pipeline ID to run (leave blank to run all)"
+        required: false
+        default: ""
+      base_url:
+        description: "Base URL of the deployment"
+        required: false
+        default: "https://robin-cannon.dev"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run pipeline(s)
+        env:
+          AUTH_TOKEN: ${{ secrets.DIGEST_AUTH_TOKEN }}
+          BASE_URL: ${{ inputs.base_url }}
+          PIPELINE_ID: ${{ inputs.pipeline_id }}
+        run: |
+          if [ -n "$PIPELINE_ID" ]; then
+            echo "Running pipeline: $PIPELINE_ID"
+            curl -s -X POST "$BASE_URL/admin/run-pipeline" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer $AUTH_TOKEN" \
+              -d "{\"pipeline_id\": \"$PIPELINE_ID\"}" | jq .
+          else
+            echo "Running all pipelines..."
+            curl -s -X POST "$BASE_URL/admin/run-pipeline" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer $AUTH_TOKEN" \
+              -d "{}" | jq .
+          fi
