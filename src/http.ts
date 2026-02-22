@@ -427,17 +427,14 @@ app.post("/dailydirection/feedback", express.json(), (req, res) => {
   res.json({ ok: true });
 });
 
-app.post("/admin/run-direction", express.json(), authMiddleware, async (_req, res) => {
-  try {
-    console.error("[admin] Manual direction generation");
-    const id = await generateDailyDirection();
-    const db = getDb();
-    const direction = db.prepare("SELECT * FROM daily_directions WHERE id = ?").get(id);
-    res.json(direction);
-  } catch (err) {
+app.post("/admin/run-direction", express.json(), authMiddleware, (_req, res) => {
+  console.error("[admin] Manual direction generation");
+  res.status(202).json({ status: "accepted" });
+  generateDailyDirection().then(id => {
+    console.error(`[admin] Daily direction generated: #${id}`);
+  }).catch(err => {
     console.error("[admin] Direction generation error:", err);
-    res.status(500).json({ error: String(err) });
-  }
+  });
 });
 
 // --- MCP endpoint ---

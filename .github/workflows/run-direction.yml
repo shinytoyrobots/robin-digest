@@ -1,0 +1,24 @@
+name: Run Daily Direction
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Base URL of the deployment"
+        required: false
+        default: "https://robin-cannon.dev"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger daily direction generation
+        env:
+          AUTH_TOKEN: ${{ secrets.DIGEST_AUTH_TOKEN }}
+          BASE_URL: ${{ inputs.base_url }}
+        run: |
+          response=$(curl -s -X POST "$BASE_URL/admin/run-direction" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $AUTH_TOKEN" \
+            -d "{}")
+          echo "$response" | jq . 2>/dev/null || echo "$response"
