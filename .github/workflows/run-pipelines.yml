@@ -22,16 +22,22 @@ jobs:
           BASE_URL: ${{ inputs.base_url }}
           PIPELINE_ID: ${{ inputs.pipeline_id }}
         run: |
+          show_response() {
+            local response="$1"
+            echo "$response" | jq . 2>/dev/null || echo "$response"
+          }
           if [ -n "$PIPELINE_ID" ]; then
             echo "Running pipeline: $PIPELINE_ID"
-            curl -s -X POST "$BASE_URL/admin/run-pipeline" \
+            response=$(curl -s -X POST "$BASE_URL/admin/run-pipeline" \
               -H "Content-Type: application/json" \
               -H "Authorization: Bearer $AUTH_TOKEN" \
-              -d "{\"pipeline_id\": \"$PIPELINE_ID\"}" | jq .
+              -d "{\"pipeline_id\": \"$PIPELINE_ID\"}")
+            show_response "$response"
           else
             echo "Running all pipelines..."
-            curl -s -X POST "$BASE_URL/admin/run-pipeline" \
+            response=$(curl -s -X POST "$BASE_URL/admin/run-pipeline" \
               -H "Content-Type: application/json" \
               -H "Authorization: Bearer $AUTH_TOKEN" \
-              -d "{}" | jq .
+              -d "{}")
+            show_response "$response"
           fi
