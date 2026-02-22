@@ -1,0 +1,21 @@
+name: Seed Sources
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Base URL of the deployment"
+        required: false
+        default: "https://robin-cannon.dev"
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run seed script
+        env:
+          AUTH_TOKEN: ${{ secrets.DIGEST_AUTH_TOKEN }}
+          BASE_URL: ${{ inputs.base_url }}
+        run: bash scripts/seed-substack.sh
