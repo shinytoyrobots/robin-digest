@@ -30,6 +30,7 @@ delete_source() {
 
 # --- Removals ---
 delete_source "substack-fiction" "https://cafelatteau.substack.com"
+delete_source "substack-fiction" "https://brianniemeier.substack.com"
 
 # Design & Tech
 seed "substack-design-tech" '{
