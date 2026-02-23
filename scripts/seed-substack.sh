@@ -90,8 +90,7 @@ seed "substack-fiction" '{
     { "name": "Tom Cox", "url": "https://tomcox.substack.com" },
     { "name": "Punk Noir Magazine", "url": "https://www.punknoir.online" },
     { "name": "Project Dreamcatcher", "url": "https://digitalisarchives.substack.com" },
-    { "name": "Allison Ink", "url": "https://allisonink.substack.com" },
-    { "name": "Kairos", "url": "https://brianniemeier.substack.com" }
+    { "name": "Allison Ink", "url": "https://allisonink.substack.com" }
   ]
 }'
 
