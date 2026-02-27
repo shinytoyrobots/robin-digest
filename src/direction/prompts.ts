@@ -79,10 +79,27 @@ No markdown, no preamble, no explanation — just the JSON array.`;
   const parts: string[] = [];
 
   if (context.recentWritings.length > 0) {
-    parts.push("## Recent writings on robin-cannon.com");
-    for (const w of context.recentWritings) {
-      parts.push(`- ${w.title} (${w.url})`);
+    const fiction = context.recentWritings.filter((w) => w.category === "fiction");
+    const nonFiction = context.recentWritings.filter((w) => w.category === "non-fiction");
+
+    if (nonFiction.length > 0) {
+      parts.push("## Recent non-fiction (field-notes, signals)");
+      for (const w of nonFiction) {
+        parts.push(`### ${w.title}\n${w.url}\n\n${w.excerpt}`);
+      }
     }
+
+    if (fiction.length > 0) {
+      parts.push("\n## Recent fiction (shiny-toy-robots, alternate-frequencies)");
+      for (const w of fiction) {
+        parts.push(`### ${w.title}\n${w.url}\n\n${w.excerpt}`);
+      }
+    }
+  }
+
+  if (context.missionStatement && context.recentWritings.some((w) => w.category === "fiction")) {
+    parts.push("\n## Static Drift — Mission Statement (fiction project bible)");
+    parts.push(context.missionStatement);
   }
 
   if (context.recentDigestSnippets.length > 0) {

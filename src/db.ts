@@ -88,6 +88,14 @@ function initSchema(db: Database.Database): void {
       note TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS writing_cache (
+      url TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      category TEXT NOT NULL,
+      content TEXT NOT NULL,
+      fetched_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // Indexes
