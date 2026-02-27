@@ -425,6 +425,9 @@ ${engageHtml}
 ${historyHtml}
 <div class="footer">Generated at 3:30 AM CT &middot; <a href="/">robin-cannon.dev</a></div>
 <script>
+if (window.location.search.includes('status=')) {
+  history.replaceState(null, '', window.location.pathname);
+}
 document.querySelectorAll('.feedback-row button').forEach(btn => {
   btn.addEventListener('click', async function() {
     const row = this.closest('.feedback-row');
