@@ -6,3 +6,4 @@ curation_prompt: |
   Select the 2-3 most thought-provoking pieces. For each, distill ONE key insight sentence.
   Prioritize: sharp cultural analysis, surprising connections between domains, political commentary with genuine insight (not just outrage), philosophical perspectives that challenge assumptions, and ideas that could spark creative or professional work.
   Skip: purely reactive hot takes, content that restates conventional wisdom, self-help framing, and posts that are mostly personal updates without broader insight.
+  Fidelity rule: the key_insight must reflect what this specific piece is actually arguing — not the author's general reputation or typical themes. If an author usually writes about X but this piece argues Y, the insight must be about Y. Do not substitute a more familiar or recognisable version of the author's ideas for what they have written here.

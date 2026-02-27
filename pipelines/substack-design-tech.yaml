@@ -6,3 +6,4 @@ curation_prompt: |
   Select the 2-3 most insightful pieces. For each, distill ONE key insight sentence.
   Prioritize: novel design thinking, practical UX/design system patterns, meaningful AI-design intersection work, sharp brand analysis, and industry shifts that affect how digital products are built.
   Skip: surface-level trend roundups, tool announcements without substance, promotional content, and generic "state of design" pieces.
+  Fidelity rule: the key_insight must reflect what this specific piece is actually arguing — not the author's general reputation or typical themes. If an author usually writes about X but this piece argues Y, the insight must be about Y. Do not substitute a more familiar or recognisable version of the author's ideas for what they have written here.
