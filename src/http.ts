@@ -3,7 +3,7 @@ import crypto from "crypto";
 import cron from "node-cron";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { config, loadPipelineConfigs } from "./config.js";
-import { getDb, upsertPipelines } from "./db.js";
+import { getDb, upsertPipelines, getSetting, setSetting } from "./db.js";
 import { createServer } from "./server.js";
 import { runPipeline, runAllPipelines } from "./pipeline/runner.js";
 import { generateDailyDirection } from "./direction/generator.js";
@@ -19,6 +19,16 @@ const app = express();
 
 function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function getTodayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function isFeaturePaused(settingKey: string): boolean {
+  const until = getSetting(settingKey);
+  if (!until) return false;
+  return getTodayIso() <= until;
 }
 
 function formatDate(iso: string): string {
@@ -63,7 +73,11 @@ app.get("/", (_req, res) => {
 
 // --- Public digests page ---
 
-app.get("/digests", (_req, res) => {
+app.get("/digests", (req, res) => {
+  const notice = req.query.status as string | undefined;
+  const digestPausedUntil = getSetting("digest_paused_until");
+  const digestPaused = isFeaturePaused("digest_paused_until");
+  const todayIso = getTodayIso();
   const db = getDb();
 
   // Get latest digest per pipeline for today (deduplicated)
@@ -140,7 +154,19 @@ app.get("/digests", (_req, res) => {
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'IBM Plex Sans',sans-serif;max-width:672px;margin:0 auto;padding:48px 16px;background:#fff;color:#161616;line-height:1.5;font-size:.875rem}
 h1{font-size:1.75rem;font-weight:600;letter-spacing:0;margin-bottom:4px}
-.subtitle{color:#525252;font-size:.875rem;margin-bottom:2rem}
+.subtitle{color:#525252;font-size:.875rem;margin-bottom:1rem}
+.toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:1.25rem}
+.pause-ctrl{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pause-form{display:flex;align-items:center;gap:6px}
+.pause-label{color:#525252;font-size:.75rem;white-space:nowrap}
+.pause-badge{color:#6f6f6f;font-size:.8125rem}
+.date-input{border:1px solid #8d8d8d;padding:3px 6px;font-size:.75rem;font-family:'IBM Plex Sans',sans-serif}
+.btn-action{background:#0f62fe;color:#fff;border:none;padding:5px 14px;font-size:.8125rem;font-family:'IBM Plex Sans',sans-serif;cursor:pointer}
+.btn-action:hover{background:#0353e9}
+.btn-outline{background:transparent;color:#525252;border:1px solid #8d8d8d;padding:4px 10px;font-size:.75rem;font-family:'IBM Plex Sans',sans-serif;cursor:pointer}
+.btn-outline:hover{background:#e0e0e0;border-color:#525252}
+.btn-link{background:none;border:none;color:#0f62fe;font-size:.8125rem;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;padding:0;text-decoration:underline}
+.notice{background:#edf5ff;border-left:3px solid #0f62fe;padding:.625rem 1rem;margin-bottom:1rem;font-size:.8125rem;color:#161616}
 .section-heading{font-size:1rem;font-weight:600;color:#161616;margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid #e0e0e0}
 .yesterday-toggle{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px}
 .yesterday-toggle::-webkit-details-marker{display:none}
@@ -165,11 +191,38 @@ details[open]>.yesterday-toggle::before{transform:rotate(90deg)}
 </style></head><body>
 <h1>Daily Digests</h1>
 <p class="subtitle">Key insights curated daily from newsletters and blogs</p>
+${notice === "refresh_queued" ? `<div class="notice">Refresh queued — check back in a few minutes.</div>` : ""}
+<div class="toolbar">
+  <form method="POST" action="/digests/refresh" style="margin:0"><button type="submit" class="btn-action">&#8635; Refresh</button></form>
+  <div class="pause-ctrl">
+    ${digestPaused ? `<span class="pause-badge">&#9646; Paused until ${esc(digestPausedUntil!)}</span><form method="POST" action="/digests/resume" style="margin:0"><button type="submit" class="btn-link">Resume</button></form>` : `<form method="POST" action="/digests/pause" class="pause-form" style="margin:0"><span class="pause-label">Pause until</span><input type="date" name="until" min="${esc(todayIso)}" class="date-input" required><button type="submit" class="btn-outline">Pause</button></form>`}
+  </div>
+</div>
 ${body}
 <div class="footer">Generated at 3:00 AM CT &middot; <a href="/">robin-cannon.dev</a></div>
 </body></html>`;
 
   res.type("html").send(html);
+});
+
+app.post("/digests/refresh", (_req, res) => {
+  console.error("[digest] Manual refresh triggered");
+  runAllPipelines().catch(err => console.error("[digest] Refresh error:", err));
+  res.redirect("/digests?status=refresh_queued");
+});
+
+app.post("/digests/pause", express.urlencoded({ extended: false }), (req, res) => {
+  const until = req.body.until as string;
+  if (!until || until < getTodayIso()) { res.redirect("/digests"); return; }
+  setSetting("digest_paused_until", until);
+  console.error(`[digest] Paused until ${until}`);
+  res.redirect("/digests");
+});
+
+app.post("/digests/resume", (_req, res) => {
+  setSetting("digest_paused_until", null);
+  console.error("[digest] Resumed");
+  res.redirect("/digests");
 });
 
 // --- Daily Direction page ---
@@ -223,7 +276,9 @@ function renderHistorySection(
 function renderDirectionPage(
   direction: DirectionRow | null,
   feedbackMap: Map<number, string>,
-  historyHtml: string
+  historyHtml: string,
+  notice?: string,
+  dirPausedUntil?: string | null
 ): string {
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long", month: "long", day: "numeric", year: "numeric",
@@ -312,8 +367,20 @@ function renderDirectionPage(
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'IBM Plex Sans',sans-serif;max-width:672px;margin:0 auto;padding:48px 16px;background:#fff;color:#161616;line-height:1.5;font-size:.875rem}
 h1{font-size:1.75rem;font-weight:600;letter-spacing:0;margin-bottom:4px}
-.date{color:#525252;font-size:.875rem;margin-top:0}
-.lens{color:#525252;font-size:.875rem;margin:1.25rem 0 .75rem}
+.date{color:#525252;font-size:.875rem;margin-top:0;margin-bottom:1rem}
+.lens{color:#525252;font-size:.875rem;margin:.5rem 0 .75rem}
+.toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:1.25rem}
+.pause-ctrl{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pause-form{display:flex;align-items:center;gap:6px}
+.pause-label{color:#525252;font-size:.75rem;white-space:nowrap}
+.pause-badge{color:#6f6f6f;font-size:.8125rem}
+.date-input{border:1px solid #8d8d8d;padding:3px 6px;font-size:.75rem;font-family:'IBM Plex Sans',sans-serif}
+.btn-action{background:#0f62fe;color:#fff;border:none;padding:5px 14px;font-size:.8125rem;font-family:'IBM Plex Sans',sans-serif;cursor:pointer}
+.btn-action:hover{background:#0353e9}
+.btn-outline{background:transparent;color:#525252;border:1px solid #8d8d8d;padding:4px 10px;font-size:.75rem;font-family:'IBM Plex Sans',sans-serif;cursor:pointer}
+.btn-outline:hover{background:#e0e0e0;border-color:#525252}
+.btn-link{background:none;border:none;color:#0f62fe;font-size:.8125rem;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;padding:0;text-decoration:underline}
+.notice{background:#edf5ff;border-left:3px solid #0f62fe;padding:.625rem 1rem;margin-bottom:1rem;font-size:.8125rem;color:#161616}
 .section-heading{font-size:1rem;font-weight:600;color:#161616;margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid #e0e0e0}
 .card{background:#f4f4f4;border-left:3px solid #0f62fe;padding:1rem 1.25rem;margin-bottom:1rem}
 .card-title{font-size:.9375rem;font-weight:600;margin:.375rem 0 .25rem}
@@ -346,6 +413,13 @@ details[open]>.yesterday-toggle::before{transform:rotate(90deg)}
 </style></head><body>
 <h1>Daily Direction</h1>
 <p class="date">${esc(today)}</p>
+${notice === "generating" ? `<div class="notice">New direction generating — refresh in a moment.</div>` : ""}
+<div class="toolbar">
+  <form method="POST" action="/dailydirection/refresh" style="margin:0"><button type="submit" class="btn-action">&#8635; Regenerate</button></form>
+  <div class="pause-ctrl">
+    ${dirPausedUntil && getTodayIso() <= dirPausedUntil ? `<span class="pause-badge">&#9646; Paused until ${esc(dirPausedUntil)}</span><form method="POST" action="/dailydirection/resume" style="margin:0"><button type="submit" class="btn-link">Resume</button></form>` : `<form method="POST" action="/dailydirection/pause" class="pause-form" style="margin:0"><span class="pause-label">Pause until</span><input type="date" name="until" min="${getTodayIso()}" class="date-input" required><button type="submit" class="btn-outline">Pause</button></form>`}
+  </div>
+</div>
 ${suggestionsHtml}
 ${engageHtml}
 ${historyHtml}
@@ -373,7 +447,9 @@ document.querySelectorAll('.feedback-row button').forEach(btn => {
 </script></body></html>`;
 }
 
-app.get("/dailydirection", (_req, res) => {
+app.get("/dailydirection", (req, res) => {
+  const notice = req.query.status as string | undefined;
+  const dirPausedUntil = getSetting("direction_paused_until");
   const db = getDb();
 
   // Get today's direction (or most recent)
@@ -418,7 +494,7 @@ app.get("/dailydirection", (_req, res) => {
   }
 
   const historyHtml = renderHistorySection(pastDirections, feedbackByDirection);
-  res.type("html").send(renderDirectionPage(direction ?? null, feedbackMap, historyHtml));
+  res.type("html").send(renderDirectionPage(direction ?? null, feedbackMap, historyHtml, notice, dirPausedUntil));
 });
 
 app.post("/dailydirection/feedback", express.json(), (req, res) => {
@@ -438,6 +514,26 @@ app.post("/dailydirection/feedback", express.json(), (req, res) => {
   ).run(direction_id, suggestion_index, reaction, note ?? null);
 
   res.json({ ok: true });
+});
+
+app.post("/dailydirection/refresh", (_req, res) => {
+  console.error("[direction] Manual refresh triggered");
+  generateDailyDirection().catch(err => console.error("[direction] Refresh error:", err));
+  res.redirect("/dailydirection?status=generating");
+});
+
+app.post("/dailydirection/pause", express.urlencoded({ extended: false }), (req, res) => {
+  const until = req.body.until as string;
+  if (!until || until < getTodayIso()) { res.redirect("/dailydirection"); return; }
+  setSetting("direction_paused_until", until);
+  console.error(`[direction] Paused until ${until}`);
+  res.redirect("/dailydirection");
+});
+
+app.post("/dailydirection/resume", (_req, res) => {
+  setSetting("direction_paused_until", null);
+  console.error("[direction] Resumed");
+  res.redirect("/dailydirection");
 });
 
 app.post("/admin/run-direction", express.json(), authMiddleware, (_req, res) => {
@@ -581,6 +677,10 @@ app.post("/admin/run-pipeline", express.json(), authMiddleware, (req, res) => {
 
 if (cron.validate(config.cronSchedule)) {
   cron.schedule(config.cronSchedule, async () => {
+    if (isFeaturePaused("digest_paused_until")) {
+      console.error(`[cron] Digest paused, skipping run`);
+      return;
+    }
     console.error(`[cron] Scheduled run starting`);
     try {
       const results = await runAllPipelines();
@@ -594,6 +694,10 @@ if (cron.validate(config.cronSchedule)) {
 
 if (cron.validate(config.directionCron)) {
   cron.schedule(config.directionCron, async () => {
+    if (isFeaturePaused("direction_paused_until")) {
+      console.error(`[cron] Direction paused, skipping run`);
+      return;
+    }
     console.error(`[cron] Daily direction generation starting`);
     try {
       const id = await generateDailyDirection();

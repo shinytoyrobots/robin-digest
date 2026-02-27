@@ -108,6 +108,13 @@ function initSchema(db: Database.Database): void {
     db.exec("ALTER TABLE snippets ADD COLUMN is_fresh INTEGER NOT NULL DEFAULT 1");
   }
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+  `);
+
   // FTS table — created separately since virtual tables don't support IF NOT EXISTS in all builds
   const ftsExists = db.prepare(
     "SELECT name FROM sqlite_master WHERE type='table' AND name='snippets_fts'"
@@ -137,6 +144,21 @@ function initSchema(db: Database.Database): void {
         VALUES (new.id, new.key_insight);
       END;
     `);
+  }
+}
+
+export function getSetting(key: string): string | null {
+  const db = getDb();
+  const row = db.prepare("SELECT value FROM settings WHERE key = ?").get(key) as { value: string } | undefined;
+  return row?.value ?? null;
+}
+
+export function setSetting(key: string, value: string | null): void {
+  const db = getDb();
+  if (value === null) {
+    db.prepare("DELETE FROM settings WHERE key = ?").run(key);
+  } else {
+    db.prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(key, value);
   }
 }
 
