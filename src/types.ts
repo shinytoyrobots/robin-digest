@@ -53,13 +53,14 @@ export interface Snippet {
   source_url: string;
   source_name: string;
   position: number;
+  is_fresh: number;
 }
 
 export interface CuratedSnippet {
   key_insight: string;
   source_url: string;
   source_name: string;
-  source_article_id?: number;
+  source_article_id: number | null;
   is_fresh?: boolean;
 }
 
