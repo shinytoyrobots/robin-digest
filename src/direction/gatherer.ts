@@ -19,6 +19,16 @@ const SECTION_FEEDS: { url: string; category: "fiction" | "non-fiction" }[] = [
   { url: "https://www.robin-cannon.com/feed?sectionId=285509", category: "fiction" },    // alternate-frequencies
 ];
 
+// Domains where articles can be replied to (e.g. via Substack comments)
+const COMMENTABLE_DOMAINS = ["substack.com"];
+
+function isCommentable(url: string): boolean {
+  return COMMENTABLE_DOMAINS.some(domain => url.includes(domain));
+}
+
+// Writing cache is considered fresh if populated within this window
+const WRITING_CACHE_TTL_HOURS = 24;
+
 async function fetchJson(url: string): Promise<unknown> {
   const headers: Record<string, string> = { Accept: "application/json" };
   if (config.robinMcpToken) {
@@ -67,6 +77,28 @@ async function fetchActiveContexts(): Promise<string[]> {
 
 async function fetchWritingsWithContent(): Promise<GatheredContext["recentWritings"]> {
   try {
+    const db = getDb();
+
+    // Return cached writings if they were fetched within the TTL window
+    const cachedRows = db
+      .prepare(
+        `SELECT url, title, category, content, fetched_at FROM writing_cache
+         WHERE fetched_at > datetime('now', '-${WRITING_CACHE_TTL_HOURS} hours')
+         ORDER BY fetched_at DESC`
+      )
+      .all() as { url: string; title: string; category: string; content: string; fetched_at: string }[];
+
+    if (cachedRows.length > 0) {
+      console.error(`[direction] Writing cache hit (${cachedRows.length} entries)`);
+      return cachedRows.map((r) => ({
+        title: r.title,
+        url: r.url,
+        category: r.category as "fiction" | "non-fiction",
+        excerpt: r.content,
+      }));
+    }
+
+    // Cache is stale — fetch fresh from RSS feeds
     type RawArticle = { url: string; title: string; published_at?: string; content: string; category: "fiction" | "non-fiction" };
 
     const results = await Promise.allSettled(
@@ -108,34 +140,28 @@ async function fetchWritingsWithContent(): Promise<GatheredContext["recentWritin
 
     if (selected.length === 0) return [];
 
-    const db = getDb();
+    // Rebuild writing cache with fresh data
     const currentUrls = selected.map((a) => a.url);
     const placeholders = currentUrls.map(() => "?").join(",");
-
-    // Delete entries no longer in the current top-8
     db.prepare(`DELETE FROM writing_cache WHERE url NOT IN (${placeholders})`).run(...currentUrls);
 
-    // Find which are already cached
-    const cachedRows = db
-      .prepare(`SELECT url FROM writing_cache WHERE url IN (${placeholders})`)
-      .all(...currentUrls) as { url: string }[];
-    const cached = new Set(cachedRows.map((r) => r.url));
-
-    // Insert new entries
     const insert = db.prepare(
-      "INSERT OR IGNORE INTO writing_cache (url, title, category, content, fetched_at) VALUES (?, ?, ?, ?, datetime('now'))"
+      "INSERT OR REPLACE INTO writing_cache (url, title, category, content, fetched_at) VALUES (?, ?, ?, ?, datetime('now'))"
     );
-    for (const article of selected) {
-      if (!cached.has(article.url) && article.content) {
-        const excerpt =
-          article.category === "fiction"
-            ? truncateToWords(article.content, 500)
-            : truncateToWords(article.content, 250, 250);
-        insert.run(article.url, article.title, article.category, excerpt);
+    db.transaction(() => {
+      for (const article of selected) {
+        if (article.content) {
+          const excerpt =
+            article.category === "fiction"
+              ? truncateToWords(article.content, 500)
+              : truncateToWords(article.content, 250, 250);
+          insert.run(article.url, article.title, article.category, excerpt);
+        }
       }
-    }
+    })();
 
-    // Return from cache
+    console.error(`[direction] Writing cache refreshed (${selected.length} entries)`);
+
     const rows = db
       .prepare(`SELECT url, title, category, content FROM writing_cache WHERE url IN (${placeholders})`)
       .all(...currentUrls) as { url: string; title: string; category: string; content: string }[];
@@ -170,7 +196,7 @@ function fetchRecentDigestSnippets(): GatheredContext["recentDigestSnippets"] {
       insight: r.key_insight,
       source: r.source_name,
       source_url: r.source_url,
-      commentable: r.source_url.includes("substack.com"),
+      commentable: isCommentable(r.source_url),
       published_at: r.published_at,
     }));
   } catch (err) {
@@ -182,25 +208,34 @@ function fetchRecentDigestSnippets(): GatheredContext["recentDigestSnippets"] {
 function fetchRecentFeedback(): GatheredContext["recentFeedback"] {
   try {
     const db = getDb();
+
+    // Group feedback rows by direction_id to avoid re-parsing suggestions JSON per row
     const rows = db
       .prepare(
-        `SELECT df.reaction, df.note, df.suggestion_index, dd.suggestions
+        `SELECT df.reaction, df.note, df.suggestion_index, df.direction_id, dd.suggestions
          FROM direction_feedback df
          JOIN daily_directions dd ON df.direction_id = dd.id
          WHERE df.created_at > datetime('now', '-7 days')
          ORDER BY df.created_at DESC
          LIMIT 20`
       )
-      .all() as { reaction: string; note: string | null; suggestion_index: number; suggestions: string }[];
+      .all() as { reaction: string; note: string | null; suggestion_index: number; direction_id: number; suggestions: string }[];
+
+    // Parse each direction's suggestions JSON once, keyed by direction_id
+    const parsedByDirection = new Map<number, { title?: string }[]>();
+    for (const row of rows) {
+      if (!parsedByDirection.has(row.direction_id)) {
+        try {
+          parsedByDirection.set(row.direction_id, JSON.parse(row.suggestions) as { title?: string }[]);
+        } catch {
+          parsedByDirection.set(row.direction_id, []);
+        }
+      }
+    }
 
     return rows.map((r) => {
-      let title = `Suggestion #${r.suggestion_index + 1}`;
-      try {
-        const parsed = JSON.parse(r.suggestions);
-        if (parsed[r.suggestion_index]?.title) {
-          title = parsed[r.suggestion_index].title;
-        }
-      } catch { /* use default title */ }
+      const suggestions = parsedByDirection.get(r.direction_id) ?? [];
+      const title = suggestions[r.suggestion_index]?.title ?? `Suggestion #${r.suggestion_index + 1}`;
       return { reaction: r.reaction, suggestion_title: title, note: r.note ?? undefined };
     });
   } catch (err) {
