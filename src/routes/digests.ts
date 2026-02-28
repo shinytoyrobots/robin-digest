@@ -1,7 +1,7 @@
 import express from "express";
-import { getDb, getSetting, setSetting } from "../db.js";
+import { getDb, getSetting } from "../db.js";
 import { runAllPipelines } from "../pipeline/runner.js";
-import { isFeaturePaused, getTodayIso } from "../ui/shared.js";
+import { isFeaturePaused, createPauseRouter } from "../ui/shared.js";
 import { renderDigestsPage } from "../ui/digests.html.js";
 
 export const digestsRouter = express.Router();
@@ -57,16 +57,4 @@ digestsRouter.post("/digests/refresh", (_req, res) => {
   res.redirect("/digests?status=refresh_queued");
 });
 
-digestsRouter.post("/digests/pause", express.urlencoded({ extended: false }), (req, res) => {
-  const until = req.body.until as string;
-  if (!until || until < getTodayIso()) { res.redirect("/digests"); return; }
-  setSetting("digest_paused_until", until);
-  console.error(`[digest] Paused until ${until}`);
-  res.redirect("/digests");
-});
-
-digestsRouter.post("/digests/resume", (_req, res) => {
-  setSetting("digest_paused_until", null);
-  console.error("[digest] Resumed");
-  res.redirect("/digests");
-});
+digestsRouter.use(createPauseRouter("digest_paused_until", "/digests"));

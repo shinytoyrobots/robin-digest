@@ -1,4 +1,5 @@
-import { getSetting } from "../db.js";
+import express from "express";
+import { getSetting, setSetting } from "../db.js";
 
 export function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -61,3 +62,28 @@ details[open]>.yesterday-toggle::before{transform:rotate(90deg)}
 .footer a{color:#0f62fe;text-decoration:none}`;
 
 export const FONT_LINK = `<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap" rel="stylesheet">`;
+
+/**
+ * Creates pause/resume route handlers for a feature controlled by a settings key.
+ * Usage: router.use(createPauseRouter("digest_paused_until", "/digests"))
+ */
+export function createPauseRouter(settingKey: string, redirectPath: string): express.Router {
+  const router = express.Router();
+  const tag = `[${settingKey.replace(/_paused_until$/, "")}]`;
+
+  router.post(`${redirectPath}/pause`, express.urlencoded({ extended: false }), (req, res) => {
+    const until = req.body.until as string;
+    if (!until || until < getTodayIso()) { res.redirect(redirectPath); return; }
+    setSetting(settingKey, until);
+    console.error(`${tag} Paused until ${until}`);
+    res.redirect(redirectPath);
+  });
+
+  router.post(`${redirectPath}/resume`, (_req, res) => {
+    setSetting(settingKey, null);
+    console.error(`${tag} Resumed`);
+    res.redirect(redirectPath);
+  });
+
+  return router;
+}

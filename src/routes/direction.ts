@@ -1,7 +1,7 @@
 import express from "express";
-import { getDb, getSetting, setSetting } from "../db.js";
+import { getDb, getSetting } from "../db.js";
 import { generateDailyDirection } from "../direction/generator.js";
-import { getTodayIso } from "../ui/shared.js";
+import { createPauseRouter } from "../ui/shared.js";
 import { renderDirectionPage, renderHistorySection, type DirectionRow } from "../ui/direction.html.js";
 
 export const directionRouter = express.Router();
@@ -77,16 +77,4 @@ directionRouter.post("/dailydirection/refresh", (_req, res) => {
   res.redirect("/dailydirection?status=generating");
 });
 
-directionRouter.post("/dailydirection/pause", express.urlencoded({ extended: false }), (req, res) => {
-  const until = req.body.until as string;
-  if (!until || until < getTodayIso()) { res.redirect("/dailydirection"); return; }
-  setSetting("direction_paused_until", until);
-  console.error(`[direction] Paused until ${until}`);
-  res.redirect("/dailydirection");
-});
-
-directionRouter.post("/dailydirection/resume", (_req, res) => {
-  setSetting("direction_paused_until", null);
-  console.error("[direction] Resumed");
-  res.redirect("/dailydirection");
-});
+directionRouter.use(createPauseRouter("direction_paused_until", "/dailydirection"));

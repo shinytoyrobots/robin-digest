@@ -81,8 +81,7 @@ function stripCdata(text: string): string {
 }
 
 function decodeEntities(text: string): string {
-  return text
-    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+  return stripCdata(text)
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
