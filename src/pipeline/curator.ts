@@ -29,7 +29,7 @@ export async function curateDigest(
       AND sn.id IS NULL
       AND a.fetched_at > datetime('now', '-10 days')
     ORDER BY a.fetched_at DESC
-    LIMIT 50
+    LIMIT 25
   `).all(pipeline.id) as (Article & { source_name: string })[];
 
   if (articles.length === 0) {
@@ -50,7 +50,7 @@ export async function curateDigest(
   const articleList = taggedArticles.map((a, i) => (
     `[${i + 1}] ${a.is_fresh ? "[NEW]" : "[ARCHIVE]"} "${a.title}" — ${a.source_name}\n` +
     `URL: ${a.url}\n` +
-    `Content: ${a.content.slice(0, 1500)}\n`
+    `Content: ${a.content.slice(0, 1000)}\n`
   )).join("\n---\n");
 
   const userPrompt = `Here are the recent articles to curate:\n\n${articleList}\n\n` +

@@ -106,6 +106,9 @@ function initSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_digests_pipeline_id ON digests(pipeline_id);
     CREATE INDEX IF NOT EXISTS idx_snippets_digest_id ON snippets(digest_id);
     CREATE INDEX IF NOT EXISTS idx_direction_feedback_direction_id ON direction_feedback(direction_id);
+    CREATE INDEX IF NOT EXISTS idx_snippets_source_article_id ON snippets(source_article_id);
+    CREATE INDEX IF NOT EXISTS idx_digests_pipeline_created ON digests(pipeline_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_direction_feedback_created_at ON direction_feedback(created_at);
   `);
 
   // Migrations — add columns that may not exist on older databases

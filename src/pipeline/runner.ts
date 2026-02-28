@@ -3,6 +3,7 @@ import { discoverSources } from "./discover.js";
 import { findFeeds } from "./feed-finder.js";
 import { fetchArticles } from "./fetcher.js";
 import { curateDigest } from "./curator.js";
+import { concurrent } from "../lib/concurrency.js";
 import type { Pipeline, PipelineRunResult } from "../types.js";
 
 /**
@@ -105,12 +106,11 @@ export async function runAllPipelines(): Promise<PipelineRunResult[]> {
     "SELECT id FROM pipelines WHERE enabled = 1"
   ).all() as { id: string }[];
 
-  const results: PipelineRunResult[] = [];
-  for (const p of pipelines) {
+  console.error(`[runner] Starting ${pipelines.length} pipelines (concurrency: 3)`);
+  return concurrent<{ id: string }, PipelineRunResult>(pipelines, 3, async (p) => {
     console.error(`[runner] Starting pipeline: ${p.id}`);
     const result = await runPipeline(p.id);
-    results.push(result);
     console.error(`[runner] Completed pipeline: ${p.id} — ${result.snippets_created} snippets, ${result.errors.length} errors`);
-  }
-  return results;
+    return result;
+  });
 }
