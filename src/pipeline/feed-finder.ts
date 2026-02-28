@@ -1,6 +1,6 @@
 import { getDb } from "../db.js";
 import { fetchHtml, extractFeedLinks } from "../lib/html.js";
-import { config } from "../config.js";
+import { concurrent } from "../lib/concurrency.js";
 import type { Source } from "../types.js";
 
 const COMMON_FEED_PATHS = ["/feed", "/rss", "/rss.xml", "/atom.xml", "/feed.xml", "/index.xml"];
@@ -15,35 +15,28 @@ export async function findFeeds(pipelineId: string): Promise<number> {
     "SELECT * FROM sources WHERE pipeline_id = ? AND feed_url IS NULL AND enabled = 1"
   ).all(pipelineId) as Source[];
 
-  let found = 0;
-  const CONCURRENCY = 3;
-  const queue = [...sources];
-
-  const workers = Array.from({ length: Math.min(CONCURRENCY, sources.length) }, async () => {
-    while (queue.length > 0) {
-      const source = queue.shift()!;
-      try {
-        const feedInfo = await discoverFeed(source.url);
-        if (feedInfo) {
-          db.prepare(
-            "UPDATE sources SET feed_url = ?, feed_type = ? WHERE id = ?"
-          ).run(feedInfo.url, feedInfo.type, source.id);
-          console.error(`[feed-finder] Found ${feedInfo.type} feed for ${source.name}: ${feedInfo.url}`);
-          found++;
-        } else {
-          db.prepare("UPDATE sources SET enabled = 0 WHERE id = ?").run(source.id);
-          console.error(`[feed-finder] No feed found for ${source.name}, disabling source`);
-        }
-      } catch (err) {
-        console.error(`[feed-finder] Error probing ${source.name}: ${err}`);
+  const results = await concurrent<Source, number>(sources, 3, async (source) => {
+    try {
+      const feedInfo = await discoverFeed(source.url);
+      if (feedInfo) {
+        db.prepare(
+          "UPDATE sources SET feed_url = ?, feed_type = ? WHERE id = ?"
+        ).run(feedInfo.url, feedInfo.type, source.id);
+        console.error(`[feed-finder] Found ${feedInfo.type} feed for ${source.name}: ${feedInfo.url}`);
+        return 1;
+      } else {
         db.prepare("UPDATE sources SET enabled = 0 WHERE id = ?").run(source.id);
+        console.error(`[feed-finder] No feed found for ${source.name}, disabling source`);
+        return 0;
       }
+    } catch (err) {
+      console.error(`[feed-finder] Error probing ${source.name}: ${err}`);
+      db.prepare("UPDATE sources SET enabled = 0 WHERE id = ?").run(source.id);
+      return 0;
     }
   });
 
-  await Promise.allSettled(workers);
-
-  return found;
+  return results.reduce((sum, n) => sum + n, 0);
 }
 
 async function discoverFeed(baseUrl: string): Promise<{ url: string; type: "rss" | "atom" } | null> {
