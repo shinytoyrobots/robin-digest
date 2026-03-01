@@ -51,6 +51,12 @@ digestsRouter.get("/digests", (req, res) => {
   ));
 });
 
+digestsRouter.get("/digests/latest-timestamp", (_req, res) => {
+  const db = getDb();
+  const row = db.prepare("SELECT created_at FROM digests ORDER BY created_at DESC LIMIT 1").get() as { created_at: string } | undefined;
+  res.json({ created_at: row?.created_at ?? null });
+});
+
 digestsRouter.post("/digests/refresh", (_req, res) => {
   console.error("[digest] Manual refresh triggered");
   runAllPipelines().catch(err => console.error("[digest] Refresh error:", err));

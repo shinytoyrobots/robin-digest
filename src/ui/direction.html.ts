@@ -186,10 +186,18 @@ ${historyHtml}
 <div class="footer">${generatedAt ? `Generated at ${generatedAt}` : "Daily Direction"} &middot; <a href="/">robin-cannon.dev</a></div>
 <script>
 if (window.location.search.includes('status=generating')) {
-  setTimeout(() => window.location.reload(), 7000);
-}
-if (window.location.search.includes('status=')) {
   history.replaceState(null, '', window.location.pathname);
+  const baseline = ${JSON.stringify(direction?.created_at ?? null)};
+  let attempts = 0;
+  const poll = setInterval(async () => {
+    attempts++;
+    try {
+      const r = await fetch('/dailydirection/latest-timestamp');
+      const d = await r.json();
+      if (d.created_at !== baseline) { clearInterval(poll); window.location.reload(); return; }
+    } catch(e) {}
+    if (attempts >= 4) clearInterval(poll);
+  }, 30000);
 }
 document.querySelectorAll('.feedback-row button').forEach(btn => {
   btn.addEventListener('click', async function() {

@@ -75,5 +75,21 @@ ${notice === "refresh_queued" ? `<div class="notice">Refresh queued — check ba
 </div>
 ${body}
 <div class="footer">Generated at 3:00 AM CT &middot; <a href="/">robin-cannon.dev</a></div>
+<script>
+if (window.location.search.includes('status=refresh_queued')) {
+  history.replaceState(null, '', window.location.pathname);
+  const baseline = ${JSON.stringify(todayDigests[0]?.created_at ?? null)};
+  let attempts = 0;
+  const poll = setInterval(async () => {
+    attempts++;
+    try {
+      const r = await fetch('/digests/latest-timestamp');
+      const d = await r.json();
+      if (d.created_at !== baseline) { clearInterval(poll); window.location.reload(); return; }
+    } catch(e) {}
+    if (attempts >= 4) clearInterval(poll);
+  }, 30000);
+}
+</script>
 </body></html>`;
 }

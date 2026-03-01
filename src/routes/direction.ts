@@ -52,6 +52,12 @@ directionRouter.get("/dailydirection", (req, res) => {
   res.type("html").send(renderDirectionPage(direction ?? null, feedbackMap, historyHtml, notice, dirPausedUntil));
 });
 
+directionRouter.get("/dailydirection/latest-timestamp", (_req, res) => {
+  const db = getDb();
+  const row = db.prepare("SELECT created_at FROM daily_directions ORDER BY created_at DESC LIMIT 1").get() as { created_at: string } | undefined;
+  res.json({ created_at: row?.created_at ?? null });
+});
+
 directionRouter.post("/dailydirection/feedback", express.json(), (req, res) => {
   const { direction_id, suggestion_index, reaction, note } = req.body as {
     direction_id: number; suggestion_index: number; reaction: string; note?: string;
