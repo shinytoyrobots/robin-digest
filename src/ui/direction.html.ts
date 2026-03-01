@@ -179,6 +179,9 @@ ${engageHtml}
 ${historyHtml}
 <div class="footer">Generated at 3:30 AM CT &middot; <a href="/">robin-cannon.dev</a></div>
 <script>
+if (window.location.search.includes('status=generating')) {
+  setTimeout(() => window.location.reload(), 7000);
+}
 if (window.location.search.includes('status=')) {
   history.replaceState(null, '', window.location.pathname);
 }
