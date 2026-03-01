@@ -89,6 +89,12 @@ export function renderDirectionPage(
 
   const todayIso = getTodayIso();
 
+  const generatedAt = direction
+    ? new Date(direction.created_at.replace(" ", "T") + "Z").toLocaleTimeString("en-US", {
+        hour: "numeric", minute: "2-digit", timeZone: "America/Chicago",
+      }) + " CT"
+    : null;
+
   let suggestionsHtml = "";
   let engageHtml = "";
 
@@ -177,7 +183,7 @@ ${notice === "generating" ? `<div class="notice">New direction generating — re
 ${suggestionsHtml}
 ${engageHtml}
 ${historyHtml}
-<div class="footer">Generated at 3:30 AM CT &middot; <a href="/">robin-cannon.dev</a></div>
+<div class="footer">${generatedAt ? `Generated at ${generatedAt}` : "Daily Direction"} &middot; <a href="/">robin-cannon.dev</a></div>
 <script>
 if (window.location.search.includes('status=generating')) {
   setTimeout(() => window.location.reload(), 7000);
