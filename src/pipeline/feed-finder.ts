@@ -39,6 +39,10 @@ export async function findFeeds(pipelineId: string): Promise<number> {
   return results.reduce((sum, n) => sum + n, 0);
 }
 
+export async function discoverFeedForUrl(url: string): Promise<{ url: string; type: "rss" | "atom" } | null> {
+  return discoverFeed(url);
+}
+
 async function discoverFeed(baseUrl: string): Promise<{ url: string; type: "rss" | "atom" } | null> {
   // Try fetching the page and looking for <link rel="alternate">
   try {
