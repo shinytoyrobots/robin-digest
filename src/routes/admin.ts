@@ -5,6 +5,12 @@ import { generateDailyDirection } from "../direction/generator.js";
 
 export const adminRouter = express.Router();
 
+adminRouter.get("/admin/sources", (_req, res) => {
+  const db = getDb();
+  const sources = db.prepare("SELECT pipeline_id, name, url, enabled FROM sources ORDER BY pipeline_id, url").all();
+  res.json(sources);
+});
+
 adminRouter.post("/admin/seed-sources", express.json(), (req, res) => {
   const { pipeline_id, sources } = req.body as { pipeline_id: string; sources: { name: string; url: string }[] };
   if (!pipeline_id || !sources?.length) {
