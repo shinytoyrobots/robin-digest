@@ -192,13 +192,19 @@ function fetchRecentDigestSnippets(): GatheredContext["recentDigestSnippets"] {
          LIMIT 15`
       )
       .all() as { key_insight: string; source_name: string; source_url: string; published_at: string | null }[];
-    return rows.map((r) => ({
+    const snippets = rows.map((r) => ({
       insight: r.key_insight,
       source: r.source_name,
       source_url: r.source_url,
       commentable: isCommentable(r.source_url),
       published_at: r.published_at,
     }));
+    // Shuffle to avoid primacy bias — Claude over-weights items early in context
+    for (let i = snippets.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [snippets[i], snippets[j]] = [snippets[j], snippets[i]];
+    }
+    return snippets;
   } catch (err) {
     console.error("[direction] Failed to fetch digest snippets:", err);
     return [];
