@@ -22,6 +22,27 @@ adminRouter.get("/sources", (_req, res) => {
   res.type("html").send(renderSourcesPage(sources));
 });
 
+adminRouter.post("/admin/update-source", express.json(), (req, res) => {
+  const { pipeline_id, url, new_url, feed_url, name, enabled } = req.body as {
+    pipeline_id: string; url: string;
+    new_url?: string; feed_url?: string; name?: string; enabled?: boolean;
+  };
+  if (!pipeline_id || !url) { res.status(400).json({ error: "pipeline_id and url required" }); return; }
+  const db = getDb();
+  const source = db.prepare("SELECT id FROM sources WHERE pipeline_id = ? AND url = ?").get(pipeline_id, url) as { id: number } | undefined;
+  if (!source) { res.status(404).json({ error: "source not found" }); return; }
+  const sets: string[] = [];
+  const params: unknown[] = [];
+  if (new_url !== undefined) { sets.push("url = ?"); params.push(new_url); }
+  if (feed_url !== undefined) { sets.push("feed_url = ?"); params.push(feed_url); }
+  if (name !== undefined) { sets.push("name = ?"); params.push(name); }
+  if (enabled !== undefined) { sets.push("enabled = ?"); params.push(enabled ? 1 : 0); }
+  if (sets.length === 0) { res.status(400).json({ error: "nothing to update" }); return; }
+  params.push(source.id);
+  db.prepare(`UPDATE sources SET ${sets.join(", ")} WHERE id = ?`).run(...params);
+  res.json({ updated: 1, pipeline_id, url: new_url ?? url });
+});
+
 adminRouter.post("/admin/seed-sources", express.json(), (req, res) => {
   const { pipeline_id, sources } = req.body as { pipeline_id: string; sources: { name: string; url: string }[] };
   if (!pipeline_id || !sources?.length) {
