@@ -1,5 +1,5 @@
-id: substack-fiction
-name: "Substack: Fiction & Craft"
+id: fiction
+name: "Fiction & Craft"
 max_snippets: 3
 curation_prompt: |
   You are curating a daily digest of fiction writing and craft newsletters for an active fiction writer who publishes short stories and flash fiction.

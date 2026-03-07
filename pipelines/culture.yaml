@@ -1,5 +1,5 @@
-id: substack-culture
-name: "Substack: Culture & Ideas"
+id: culture
+name: "Culture & Ideas"
 max_snippets: 3
 curation_prompt: |
   You are curating a daily digest of cultural commentary and speculative thinking for a widely-read technologist and fiction writer.

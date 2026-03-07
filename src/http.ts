@@ -3,7 +3,7 @@ import crypto from "crypto";
 import cron from "node-cron";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { config, loadPipelineConfigs } from "./config.js";
-import { getDb, upsertPipelines } from "./db.js";
+import { getDb, upsertPipelines, runDataMigrations } from "./db.js";
 import { createServer } from "./server.js";
 import { runAllPipelines } from "./pipeline/runner.js";
 import { generateDailyDirection } from "./direction/generator.js";
@@ -16,6 +16,7 @@ import { adminRouter } from "./routes/admin.js";
 getDb();
 const pipelineConfigs = loadPipelineConfigs();
 upsertPipelines(pipelineConfigs);
+runDataMigrations();
 console.error(`[init] Loaded ${pipelineConfigs.length} pipeline configs`);
 
 const app = express();

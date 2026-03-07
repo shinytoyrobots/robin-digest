@@ -173,6 +173,47 @@ export function setSetting(key: string, value: string | null): void {
   }
 }
 
+/**
+ * One-time data migrations that must run after upsertPipelines (new pipeline rows must exist first).
+ * Guarded by settings flags so they only execute once.
+ */
+export function runDataMigrations(): void {
+  const db = getDb();
+
+  // Migration: rename substack-* pipelines, split ai-thoughts out of ai-news
+  if (!getSetting("migration_pipeline_rename_2026_03")) {
+    db.transaction(() => {
+      // Rename substack-* → unprefixed ids (new pipeline rows already created by upsertPipelines)
+      for (const [oldId, newId] of [
+        ["substack-culture", "culture"],
+        ["substack-design-tech", "design-tech"],
+        ["substack-fiction", "fiction"],
+      ] as [string, string][]) {
+        db.prepare("UPDATE sources SET pipeline_id = ? WHERE pipeline_id = ?").run(newId, oldId);
+        db.prepare("UPDATE digests SET pipeline_id = ? WHERE pipeline_id = ?").run(newId, oldId);
+        db.prepare("DELETE FROM pipelines WHERE id = ?").run(oldId);
+      }
+
+      // Move sources from ai-news → ai-thoughts
+      const toAiThoughts = [
+        "https://every.to/",
+        "https://www.oneusefulthing.org",
+        "https://strefatech.substack.com",
+        "https://felixhhaas.substack.com",
+        "https://zerovector.substack.com",
+      ];
+      const placeholders = toAiThoughts.map(() => "?").join(",");
+      db.prepare(`UPDATE sources SET pipeline_id = 'ai-thoughts' WHERE url IN (${placeholders})`).run(...toAiThoughts);
+
+      // Move Knapsack Blog from ai-news → design-tech
+      db.prepare("UPDATE sources SET pipeline_id = 'design-tech' WHERE url = ?").run("https://www.knapsack.cloud/blog");
+
+      setSetting("migration_pipeline_rename_2026_03", "done");
+    })();
+    console.error("[migration] pipeline_rename_2026_03 complete");
+  }
+}
+
 export function upsertPipelines(configs: PipelineConfig[]): void {
   const db = getDb();
   const upsert = db.prepare(`

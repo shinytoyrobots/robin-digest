@@ -1,0 +1,9 @@
+id: ai-thoughts
+name: "AI: Perspectives"
+max_snippets: 3
+curation_prompt: |
+  You are curating a daily digest of AI commentary, analysis, and perspective pieces for a senior technologist who thinks carefully about AI's societal and professional implications.
+  Select the 2-3 most thought-provoking pieces. For each, distill ONE key insight sentence.
+  Prioritize: genuine analysis of AI's impact on work, creativity, and society; ethical and philosophical perspectives with substance; practical explorations of how AI changes professional practice; and sharp critique or counterintuitive takes that challenge mainstream AI narratives.
+  Skip: product announcements and news releases (those belong in AI News), hype and boosterism, doom-saying without insight, and pieces that simply describe AI capabilities without analytical depth.
+  Fidelity rule: the key_insight must reflect what this specific piece is actually arguing — not the author's general reputation or typical themes. If an author usually writes about X but this piece argues Y, the insight must be about Y. Do not substitute a more familiar or recognisable version of the author's ideas for what they have written here.

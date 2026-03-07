@@ -17,22 +17,30 @@ seed() {
     -d "$json" | jq .
 }
 
-# --- AI News ---
+# --- AI News (releases, product launches, journalism) ---
 seed "ai-news" '{
   "pipeline_id": "ai-news",
   "sources": [
     { "name": "Cursor Blog", "url": "https://cursor.com/blog" },
-    { "name": "Every", "url": "https://every.to/" },
     { "name": "Google AI Blog", "url": "https://blog.google/technology/ai/" },
-    { "name": "Knapsack Blog", "url": "https://www.knapsack.cloud/blog" },
     { "name": "Le Monde (AI)", "url": "https://www.lemonde.fr/en/artificial-intelligence/" },
     { "name": "Microsoft AI Blog", "url": "https://www.microsoft.com/en-us/ai/blog/property/microsoft-industry-blogs/" },
     { "name": "NVIDIA (Generative AI)", "url": "https://blogs.nvidia.com/blog/category/generative-ai/" },
-    { "name": "One Useful Thing", "url": "https://www.oneusefulthing.org" },
     { "name": "OpenAI News", "url": "https://openai.com/news/" },
     { "name": "Palantir Blog", "url": "https://blog.palantir.com/" },
-    { "name": "Strefa Tech", "url": "https://strefatech.substack.com" },
     { "name": "The Guardian (AI)", "url": "https://www.theguardian.com/technology/artificialintelligenceai" }
+  ]
+}'
+
+# --- AI Perspectives (commentary, analysis, ethics) ---
+seed "ai-thoughts" '{
+  "pipeline_id": "ai-thoughts",
+  "sources": [
+    { "name": "Design + AI", "url": "https://felixhhaas.substack.com" },
+    { "name": "Every", "url": "https://every.to/" },
+    { "name": "One Useful Thing", "url": "https://www.oneusefulthing.org" },
+    { "name": "Strefa Tech", "url": "https://strefatech.substack.com" },
+    { "name": "Zero Vector", "url": "https://zerovector.substack.com" }
   ]
 }'
 
@@ -60,8 +68,8 @@ seed "pm-blogs" '{
 }'
 
 # --- Culture & Ideas ---
-seed "substack-culture" '{
-  "pipeline_id": "substack-culture",
+seed "culture" '{
+  "pipeline_id": "culture",
   "sources": [
     { "name": "Always The Horizon", "url": "https://alwaysthehorizon.substack.com" },
     { "name": "Beautiful, Daring, Stupid", "url": "https://megoolders.substack.com" },
@@ -85,24 +93,23 @@ seed "substack-culture" '{
 }'
 
 # --- Design & Tech ---
-seed "substack-design-tech" '{
-  "pipeline_id": "substack-design-tech",
+seed "design-tech" '{
+  "pipeline_id": "design-tech",
   "sources": [
     { "name": "Brand Archive", "url": "https://brandarchive.substack.com" },
     { "name": "Cyberpunk Survival Guide", "url": "https://www.cyberpunksurvivalguide.com" },
     { "name": "Defining Experience", "url": "https://kobewan.substack.com" },
-    { "name": "Design + AI", "url": "https://felixhhaas.substack.com" },
     { "name": "Design Systems Collective", "url": "https://www.designsystemscollective.com" },
     { "name": "Designverse", "url": "https://nassoskappa.substack.com" },
+    { "name": "Knapsack Blog", "url": "https://www.knapsack.cloud/blog" },
     { "name": "techletter", "url": "https://web3brew.substack.com" },
-    { "name": "The Substack Post", "url": "https://newsletter.substack.com" },
-    { "name": "Zero Vector", "url": "https://zerovector.substack.com" }
+    { "name": "The Substack Post", "url": "https://newsletter.substack.com" }
   ]
 }'
 
 # --- Fiction & Craft ---
-seed "substack-fiction" '{
-  "pipeline_id": "substack-fiction",
+seed "fiction" '{
+  "pipeline_id": "fiction",
   "sources": [
     { "name": "Allison Ink", "url": "https://allisonink.substack.com" },
     { "name": "Andy Futuro", "url": "https://andyfuturo.substack.com" },
@@ -124,4 +131,4 @@ seed "substack-fiction" '{
   ]
 }'
 
-echo "Done. Run pipelines via POST /admin/run-pipeline to test."
+echo "Done."

@@ -1,5 +1,5 @@
-id: substack-design-tech
-name: "Substack: Design & Tech"
+id: design-tech
+name: "Design & Tech"
 max_snippets: 3
 curation_prompt: |
   You are curating a daily digest of design and technology newsletter posts for a senior design systems engineer and UX leader.
