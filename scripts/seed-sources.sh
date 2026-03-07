@@ -36,11 +36,10 @@ seed "ai-news" '{
 seed "ai-thoughts" '{
   "pipeline_id": "ai-thoughts",
   "sources": [
-    { "name": "Design + AI", "url": "https://felixhhaas.substack.com" },
-    { "name": "Every", "url": "https://every.to/" },
+    { "name": "Design + AI", "url": "https://designplusai.com/" },
     { "name": "One Useful Thing", "url": "https://www.oneusefulthing.org" },
     { "name": "Strefa Tech", "url": "https://strefatech.substack.com" },
-    { "name": "Zero Vector", "url": "https://zerovector.substack.com" }
+    { "name": "Zero Vector", "url": "https://eflowers.substack.com/" }
   ]
 }'
 
@@ -52,14 +51,11 @@ seed "pm-blogs" '{
     { "name": "Bring the Donuts", "url": "https://www.bringthedonuts.com" },
     { "name": "Department of Product", "url": "https://www.departmentofproduct.com/blog" },
     { "name": "Elezea", "url": "https://elezea.com/blog" },
-    { "name": "First Round Review", "url": "https://review.firstround.com" },
     { "name": "Hitenism", "url": "https://hitenism.com" },
     { "name": "Inside Intercom", "url": "https://www.intercom.com/blog" },
     { "name": "Lenny Newsletter", "url": "https://www.lennysnewsletter.com" },
     { "name": "Marketing Ideas", "url": "https://www.marketingideas.com" },
-    { "name": "Mind the Product", "url": "https://www.mindtheproduct.com" },
     { "name": "Product Growth", "url": "https://www.news.aakashg.com" },
-    { "name": "Product Lessons", "url": "https://www.productlessons.xyz" },
     { "name": "Product Talk", "url": "https://www.producttalk.org" },
     { "name": "Roman Pichler", "url": "https://www.romanpichler.com/blog" },
     { "name": "Sachin Rekhi", "url": "https://www.sachinrekhi.com" },
@@ -88,7 +84,7 @@ seed "culture" '{
     { "name": "The Molehill", "url": "https://www.themolehill.net" },
     { "name": "The Panicked Writer", "url": "https://ellieleonard.substack.com" },
     { "name": "Things Hidden in Complexity", "url": "https://hiddencomplexity.substack.com" },
-    { "name": "Today in Fascism", "url": "https://todayinfascism.substack.com" }
+    { "name": "Today in Fascism", "url": "https://judithlevine.substack.com/" }
   ]
 }'
 
@@ -101,7 +97,6 @@ seed "design-tech" '{
     { "name": "Defining Experience", "url": "https://kobewan.substack.com" },
     { "name": "Design Systems Collective", "url": "https://www.designsystemscollective.com" },
     { "name": "Designverse", "url": "https://nassoskappa.substack.com" },
-    { "name": "Knapsack Blog", "url": "https://www.knapsack.cloud/blog" },
     { "name": "techletter", "url": "https://web3brew.substack.com" },
     { "name": "The Substack Post", "url": "https://newsletter.substack.com" }
   ]
@@ -114,7 +109,7 @@ seed "fiction" '{
     { "name": "Allison Ink", "url": "https://allisonink.substack.com" },
     { "name": "Andy Futuro", "url": "https://andyfuturo.substack.com" },
     { "name": "Beth Brower", "url": "https://bethbrower.substack.com" },
-    { "name": "DECENTRALIZED FICTION", "url": "https://arxhan.substack.com" },
+    { "name": "DECENTRALIZED FICTION", "url": "https://www.decentralizedfiction.com/" },
     { "name": "Elizabeth Lamont", "url": "https://appalledamerican.substack.com" },
     { "name": "FicStack", "url": "https://ficstack.substack.com" },
     { "name": "Fictionistas", "url": "https://fictionistas.substack.com" },
@@ -123,11 +118,11 @@ seed "fiction" '{
     { "name": "Project Dreamcatcher", "url": "https://digitalisarchives.substack.com" },
     { "name": "Punk Noir Magazine", "url": "https://www.punknoir.online" },
     { "name": "Stop Writing Alone", "url": "https://stopwritingalone.substack.com" },
-    { "name": "The Art of Flash Fiction", "url": "https://kathyfish.substack.com" },
+    { "name": "The Art of Flash Fiction", "url": "https://artofflashfiction.substack.com" },
     { "name": "The Pneumanaut", "url": "https://pneumanauts.substack.com" },
     { "name": "The Tearoom", "url": "https://mariellahunt.substack.com" },
     { "name": "Tom Cox", "url": "https://tomcox.substack.com" },
-    { "name": "Top In Fiction", "url": "https://topinfiction.substack.com" }
+    { "name": "Top In Fiction", "url": "https://www.topinfiction.com" }
   ]
 }'
 
