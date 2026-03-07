@@ -2,6 +2,7 @@ import express from "express";
 import { getDb } from "../db.js";
 import { runPipeline, runAllPipelines } from "../pipeline/runner.js";
 import { generateDailyDirection } from "../direction/generator.js";
+import { renderSourcesPage } from "../ui/sources.html.js";
 
 export const adminRouter = express.Router();
 
@@ -9,6 +10,16 @@ adminRouter.get("/admin/sources", (_req, res) => {
   const db = getDb();
   const sources = db.prepare("SELECT pipeline_id, name, url, enabled FROM sources ORDER BY pipeline_id, url").all();
   res.json(sources);
+});
+
+adminRouter.get("/sources", (_req, res) => {
+  const db = getDb();
+  const sources = db.prepare(
+    "SELECT s.pipeline_id, p.name as pipeline_name, s.name, s.url, s.enabled " +
+    "FROM sources s JOIN pipelines p ON s.pipeline_id = p.id " +
+    "ORDER BY p.name, s.enabled DESC, s.name"
+  ).all() as { pipeline_id: string; pipeline_name: string; name: string; url: string; enabled: number }[];
+  res.type("html").send(renderSourcesPage(sources));
 });
 
 adminRouter.post("/admin/seed-sources", express.json(), (req, res) => {

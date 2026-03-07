@@ -34,7 +34,7 @@ app.get("/", (_req, res) => {
   res.type("html").send(
     "<!DOCTYPE html><html><head><title>Robin Digest</title></head>" +
     "<body><h1>Robin Digest</h1>" +
-    "<p>Content curation pipeline. <a href=\"/digests\">View digests</a> &middot; <a href=\"/dailydirection\">Daily Direction</a></p>" +
+    "<p>Content curation pipeline. <a href=\"/digests\">View digests</a> &middot; <a href=\"/dailydirection\">Daily Direction</a> &middot; <a href=\"/sources\">Sources</a></p>" +
     "</body></html>"
   );
 });
