@@ -50,6 +50,7 @@ For the engage suggestions:
 - If no [COMMENTABLE] article is a good fit and you pick a [NO COMMENTS] article, suggest engaging via LinkedIn or X instead, and note this in the body.
 - If only 1 article from the last 7 days is worth engaging with, include just 1 engage item.
 - If no articles from the last 7 days are worth engaging with, omit engage suggestions entirely.
+- For fiction snippets (insight begins with "A poem that", "A short story that", "A piece of flash fiction that"): the engagement angle shifts entirely. Do not look for an analytical argument to respond to — there isn't one. Instead, look for craft or thematic resonance with Robin's recent writing (provided in context). If there is a genuine connection — shared preoccupation, similar formal approach, overlapping subject matter — suggest Robin comment as one writer to another, naming the specific thing that resonated. Only suggest engaging with fiction if a real connection exists; do not force it.
 
 [
   {

@@ -66,7 +66,8 @@ export async function curateDigest(
     `- Prefer articles marked [NEW] over [ARCHIVE] when quality is similar, but don't skip good [ARCHIVE] content — archive articles are still unpublished in this digest.\n` +
     `- If you can't distill a clear, actionable insight from an article, skip it entirely.\n` +
     `- Each key_insight must be a single sentence — specific and self-contained.\n` +
-    `- If an article is clearly a poem (verse structure, short lines, no prose argument), write a descriptive insight beginning with "A poem that" rather than forcing an analytical claim. Do not invent a thesis a poem does not make.\n` +
+    `- If an article is verse poetry (stanzas, line breaks as deliberate formal structure — not prose paragraphs), write a descriptive insight beginning with "A poem that". Do not invent a thesis it doesn't make.\n` +
+    `- If an article is prose fiction (a short story, flash fiction, or narrative with characters and plot), write a descriptive insight beginning with "A short story that" or "A piece of flash fiction that". Do not treat it as analytical argument, and do not call it a poem.\n` +
     `- In your response, set "is_fresh" to true for [NEW] articles and false for [ARCHIVE] articles.\n\n` +
     `Respond in this exact JSON format:\n` +
     `{\n` +
