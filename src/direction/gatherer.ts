@@ -7,7 +7,7 @@ export interface GatheredContext {
   recentToolUsage: { tool: string; calls: number }[];
   activeContexts: string[];
   recentWritings: { title: string; url: string; category: "fiction" | "non-fiction"; excerpt: string }[];
-  recentDigestSnippets: { insight: string; source: string; source_url: string; commentable: boolean; published_at: string | null }[];
+  recentDigestSnippets: { insight: string; source: string; source_url: string; commentable: boolean; published_at: string | null; pipeline_id: string }[];
   recentFeedback: { reaction: string; suggestion_title: string; note?: string }[];
   missionStatement: string | null;
 }
@@ -181,23 +181,31 @@ async function fetchWritingsWithContent(): Promise<GatheredContext["recentWritin
 function fetchRecentDigestSnippets(): GatheredContext["recentDigestSnippets"] {
   try {
     const db = getDb();
+    // Select up to 3 snippets per pipeline to ensure all 6 categories are represented,
+    // rather than taking the 15 most recent globally (which lets active pipelines crowd out quieter ones).
     const rows = db
       .prepare(
-        `SELECT s.key_insight, s.source_name, s.source_url, a.published_at
-         FROM snippets s
-         JOIN digests d ON s.digest_id = d.id
-         LEFT JOIN articles a ON s.source_article_id = a.id
-         WHERE d.created_at > datetime('now', '-7 days')
-         ORDER BY d.created_at DESC
-         LIMIT 15`
+        `WITH ranked AS (
+           SELECT s.key_insight, s.source_name, s.source_url, a.published_at, d.pipeline_id,
+                  ROW_NUMBER() OVER (PARTITION BY d.pipeline_id ORDER BY d.created_at DESC) AS rn
+           FROM snippets s
+           JOIN digests d ON s.digest_id = d.id
+           LEFT JOIN articles a ON s.source_article_id = a.id
+           WHERE d.created_at > datetime('now', '-7 days')
+         )
+         SELECT key_insight, source_name, source_url, published_at, pipeline_id
+         FROM ranked
+         WHERE rn <= 3
+         ORDER BY pipeline_id, rn`
       )
-      .all() as { key_insight: string; source_name: string; source_url: string; published_at: string | null }[];
+      .all() as { key_insight: string; source_name: string; source_url: string; published_at: string | null; pipeline_id: string }[];
     const snippets = rows.map((r) => ({
       insight: r.key_insight,
       source: r.source_name,
       source_url: r.source_url,
       commentable: isCommentable(r.source_url),
       published_at: r.published_at,
+      pipeline_id: r.pipeline_id,
     }));
     // Shuffle to avoid primacy bias — Claude over-weights items early in context
     for (let i = snippets.length - 1; i > 0; i--) {

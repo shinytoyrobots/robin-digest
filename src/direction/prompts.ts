@@ -45,12 +45,13 @@ Output ONLY a JSON array with this structure. The first 2-3 items are your regul
 For the engage suggestions:
 - Pick 2 DIFFERENT articles. Do not suggest the same article twice.
 - ONLY pick articles published within the last 7 days. Check the date shown in brackets. Do NOT pick old articles — engagement on stale content has low value.
-- STRONGLY prefer articles marked [COMMENTABLE] — these have comment sections where Robin can reply directly.
-- If you pick a [COMMENTABLE] article, suggest replying in the comments.
-- If no [COMMENTABLE] article is a good fit and you pick a [NO COMMENTS] article, suggest engaging via LinkedIn or X instead, and note this in the body.
+- Aim for category diversity: at most 1 of the 2 engage suggestions should be from the [fiction] pipeline. Prefer picking 1 from fiction and 1 from a non-fiction pipeline (ai-news, ai-thoughts, culture, design-tech, pm-blogs) where a good candidate exists.
+- Engagement is not limited to replying in a comment section. It can also mean writing a response article, citing the piece in a LinkedIn post or thread, or responding publicly on X. Choose the form that best fits the content and the point Robin would make.
+- For [COMMENTABLE] articles, replying in the comments is the most direct option — suggest it.
+- For [NO COMMENTS] articles, suggest the most appropriate alternative: LinkedIn citation, a response post, or a public mention on X.
 - If only 1 article from the last 7 days is worth engaging with, include just 1 engage item.
 - If no articles from the last 7 days are worth engaging with, omit engage suggestions entirely.
-- For fiction snippets (insight begins with "A poem that", "A short story that", "A piece of flash fiction that"): frame the engagement differently — Robin is engaging as a writer, not responding to an argument. Comment on what the piece made him feel, a craft observation, or a thematic resonance with his own recent work (use Robin's recent writings in context to identify specific points of connection where possible).
+- For fiction snippets (insight begins with "A poem that", "A short story that", "A piece of flash fiction that"): frame the engagement as a writer, not an analyst. Comment on what resonated, a craft observation, or a thematic connection to Robin's own recent work (use Robin's recent writings in context). Do not look for an argument to rebut.
 
 [
   {
@@ -108,7 +109,7 @@ No markdown, no preamble, no explanation — just the JSON array.`;
     for (const s of context.recentDigestSnippets) {
       const tag = s.commentable ? "[COMMENTABLE]" : "[NO COMMENTS]";
       const dateStr = s.published_at ? s.published_at.slice(0, 10) : "unknown date";
-      parts.push(`- ${tag} [${dateStr}] "${s.insight}" — ${s.source} (${s.source_url})`);
+      parts.push(`- ${tag} [${dateStr}] [${s.pipeline_id}] "${s.insight}" — ${s.source} (${s.source_url})`);
     }
   }
 
