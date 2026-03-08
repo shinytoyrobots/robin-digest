@@ -65,7 +65,8 @@ export async function curateDigest(
     `- One article per source (blog). Maximize source diversity.\n` +
     `- Prefer articles marked [NEW] over [ARCHIVE] when quality is similar, but don't skip good [ARCHIVE] content — archive articles are still unpublished in this digest.\n` +
     `- If you can't distill a clear, actionable insight from an article, skip it entirely.\n` +
-    `- Each key_insight must be a single sentence — specific, actionable, and self-contained.\n` +
+    `- Each key_insight must be a single sentence — specific and self-contained.\n` +
+    `- If an article is clearly a poem (verse structure, short lines, no prose argument), write a descriptive insight beginning with "A poem that" rather than forcing an analytical claim. Do not invent a thesis a poem does not make.\n` +
     `- In your response, set "is_fresh" to true for [NEW] articles and false for [ARCHIVE] articles.\n\n` +
     `Respond in this exact JSON format:\n` +
     `{\n` +

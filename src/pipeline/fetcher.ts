@@ -5,6 +5,11 @@ import { concurrent } from "../lib/concurrency.js";
 import { config } from "../config.js";
 import type { Source, FetchedArticle } from "../types.js";
 
+/** Minimum word count for an article to be stored. Below this threshold the content
+ *  is almost certainly a paywall stub ("This post is for paid subscribers") with no
+ *  curate-able substance. */
+const MIN_CONTENT_WORDS = 150;
+
 /**
  * Fetch new articles from all enabled sources with RSS/Atom feeds.
  */
@@ -29,10 +34,19 @@ export async function fetchArticles(pipelineId: string): Promise<number> {
       if (!res.ok) throw new Error(`HTTP ${res.status} fetching feed ${feedUrl}`);
       const xml = await res.text();
 
-      const articles = parseFeed(xml, feedType).map((a) => ({
+      const rawArticles = parseFeed(xml, feedType).map((a) => ({
         ...a,
         content: stripHtml(a.content).slice(0, 5000),
       }));
+
+      const articles = rawArticles.filter((a) => {
+        const wordCount = a.content.split(/\s+/).filter(Boolean).length;
+        if (wordCount < MIN_CONTENT_WORDS) {
+          console.error(`[fetcher] Skipping "${a.title}" — ${wordCount} words (likely paywall stub)`);
+          return false;
+        }
+        return true;
+      });
 
       const inserted = storeArticles(source, articles);
 
