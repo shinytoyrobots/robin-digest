@@ -19,7 +19,7 @@ export async function curateDigest(
   ).get(pipeline.id) as { created_at: string } | undefined;
   const lastRunAt = lastDigest?.created_at ?? null;
 
-  // Get the latest unfeatured article per source, from the last 5 days
+  // Get the latest unfeatured article per source (no time window — NOT IN snippets prevents repetition)
   const articles = db.prepare(`
     WITH latest_per_source AS (
       SELECT a.id,
@@ -27,15 +27,14 @@ export async function curateDigest(
       FROM articles a
       JOIN sources s ON a.source_id = s.id
       WHERE s.pipeline_id = ?
-        AND a.fetched_at > datetime('now', '-5 days')
         AND a.id NOT IN (SELECT source_article_id FROM snippets WHERE source_article_id IS NOT NULL)
     )
     SELECT a.*, s.name as source_name
     FROM articles a
     JOIN sources s ON a.source_id = s.id
     JOIN latest_per_source lps ON a.id = lps.id AND lps.rn = 1
-    ORDER BY a.fetched_at DESC
-    LIMIT 20
+    ORDER BY COALESCE(a.published_at, a.fetched_at) DESC
+    LIMIT 25
   `).all(pipeline.id) as (Article & { source_name: string })[];
 
   if (articles.length === 0) {
