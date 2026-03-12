@@ -22,7 +22,8 @@ const SECTION_FEEDS: { url: string; category: "fiction" | "non-fiction" }[] = [
 
 // --- Knowledge vault ---
 const VAULT_REPO = "shinytoyrobots/knowledge-vault";
-const VAULT_API = `https://api.github.com/repos/${VAULT_REPO}/contents`;
+const VAULT_BASE = `https://api.github.com/repos/${VAULT_REPO}`;
+const VAULT_API = `${VAULT_BASE}/contents`;
 
 const VAULT_FICTION_POOLS = [
   "Fiction/Standalone/Flash",
@@ -53,38 +54,47 @@ function isCommentable(url: string): boolean {
 // Writing cache is considered fresh if populated within this window
 const WRITING_CACHE_TTL_HOURS = 24;
 
-function vaultHeaders(): Record<string, string> {
-  const headers: Record<string, string> = {
-    "Accept": "application/vnd.github+json",
-    "User-Agent": "robin-digest",
-  };
+function vaultHeaders(accept = "application/vnd.github+json"): Record<string, string> {
+  const headers: Record<string, string> = { "Accept": accept, "User-Agent": "robin-digest" };
   if (config.githubToken) headers["Authorization"] = `Bearer ${config.githubToken}`;
   return headers;
 }
 
-async function fetchVaultPool(path: string): Promise<{ title: string; vaultPath: string }[]> {
-  const encodedPath = path.split("/").map(encodeURIComponent).join("/");
-  const res = await fetch(`${VAULT_API}/${encodedPath}`, {
+/** Single API call: fetch the full repo tree and index files by pool directory. */
+async function fetchVaultIndex(): Promise<Map<string, { title: string; vaultPath: string }[]>> {
+  const allPools = [...VAULT_FICTION_POOLS, ...VAULT_NONFICTION_POOLS];
+  const byPool = new Map<string, { title: string; vaultPath: string }[]>(allPools.map(p => [p, []]));
+
+  const res = await fetch(`${VAULT_BASE}/git/trees/main?recursive=1`, {
     headers: vaultHeaders(),
     signal: AbortSignal.timeout(config.fetchTimeoutMs),
   });
-  if (!res.ok) return [];
-  const files = (await res.json()) as { name: string; type: string; path: string }[];
-  return files
-    .filter(f => f.type === "file" && f.name.endsWith(".md") && !VAULT_SKIP.has(f.name))
-    .map(f => ({ title: f.name.replace(/\.md$/, ""), vaultPath: f.path }));
+  if (!res.ok) throw new Error(`GitHub tree API: HTTP ${res.status}`);
+  const { tree } = (await res.json()) as { tree: { path: string; type: string }[] };
+
+  for (const item of tree) {
+    if (item.type !== "blob" || !item.path.endsWith(".md")) continue;
+    const filename = item.path.split("/").pop()!;
+    if (VAULT_SKIP.has(filename)) continue;
+    for (const poolPath of allPools) {
+      const prefix = poolPath + "/";
+      if (item.path.startsWith(prefix) && !item.path.slice(prefix.length).includes("/")) {
+        byPool.get(poolPath)!.push({ title: filename.replace(/\.md$/, ""), vaultPath: item.path });
+        break;
+      }
+    }
+  }
+  return byPool;
 }
 
 async function fetchVaultFile(vaultPath: string): Promise<string> {
   const encodedPath = vaultPath.split("/").map(encodeURIComponent).join("/");
   const res = await fetch(`${VAULT_API}/${encodedPath}`, {
-    headers: vaultHeaders(),
+    headers: vaultHeaders("application/vnd.github.raw"),
     signal: AbortSignal.timeout(config.fetchTimeoutMs),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status} fetching vault file ${vaultPath}`);
-  const { content, encoding } = (await res.json()) as { content: string; encoding: string };
-  if (encoding !== "base64") throw new Error(`Unexpected encoding: ${encoding}`);
-  const text = Buffer.from(content, "base64").toString("utf-8");
+  const text = await res.text();
   return text.replace(/<!--[\s\S]*?-->/g, "").trim();
 }
 
@@ -211,10 +221,9 @@ async function fetchWritingsWithContent(): Promise<GatheredContext["recentWritin
     try {
       const rssLookup = new Set(rssSelected.map(a => a.title.toLowerCase().trim()));
 
-      const [fictionFiles, nonfictionFiles] = await Promise.all([
-        Promise.all(VAULT_FICTION_POOLS.map(fetchVaultPool)).then(arrs => arrs.flat()),
-        Promise.all(VAULT_NONFICTION_POOLS.map(fetchVaultPool)).then(arrs => arrs.flat()),
-      ]);
+      const poolIndex = await fetchVaultIndex();
+      const fictionFiles = VAULT_FICTION_POOLS.flatMap(p => poolIndex.get(p) ?? []);
+      const nonfictionFiles = VAULT_NONFICTION_POOLS.flatMap(p => poolIndex.get(p) ?? []);
 
       const availFiction = fictionFiles.filter(f => !rssLookup.has(f.title.toLowerCase().trim()));
       const availNonfiction = nonfictionFiles.filter(f => !rssLookup.has(f.title.toLowerCase().trim()));
