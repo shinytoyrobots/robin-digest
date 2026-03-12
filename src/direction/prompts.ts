@@ -52,6 +52,7 @@ For the engage suggestions:
 - If only 1 article from the last 7 days is worth engaging with, include just 1 engage item.
 - If no articles from the last 7 days are worth engaging with, omit engage suggestions entirely.
 - For fiction snippets (insight begins with "A poem that", "A short story that", "A piece of flash fiction that"): frame the engagement as a writer, not an analyst. Comment on what resonated, a craft observation, or a thematic connection to Robin's own recent work (use Robin's recent writings in context). Do not look for an argument to rebut.
+- VARIETY: Some snippets are marked [RECENTLY RECOMMENDED]. These sources were suggested for engagement within the last 3 days. Strongly prefer other sources — the digest covers 60+ sites and variety matters. Only pick a [RECENTLY RECOMMENDED] source if it is genuinely exceptional and no other good candidate exists from the last 7 days.
 
 [
   {
@@ -107,9 +108,18 @@ No markdown, no preamble, no explanation — just the JSON array.`;
   if (context.recentDigestSnippets.length > 0) {
     parts.push("\n## Recent digest snippets (curated this week)");
     for (const s of context.recentDigestSnippets) {
-      const tag = s.commentable ? "[COMMENTABLE]" : "[NO COMMENTS]";
+      const commentTag = s.commentable ? "[COMMENTABLE]" : "[NO COMMENTS]";
       const dateStr = s.published_at ? s.published_at.slice(0, 10) : "unknown date";
-      parts.push(`- ${tag} [${dateStr}] [${s.pipeline_id}] "${s.insight}" — ${s.source} (${s.source_url})`);
+      let recentTag = "";
+      try {
+        const host = new URL(s.source_url).hostname.replace(/^www\./, "");
+        if (context.recentlyRecommendedHosts.has(host)) {
+          recentTag = " [RECENTLY RECOMMENDED]";
+        }
+      } catch {
+        // malformed URL — skip tag
+      }
+      parts.push(`- ${commentTag}${recentTag} [${dateStr}] [${s.pipeline_id}] "${s.insight}" — ${s.source} (${s.source_url})`);
     }
   }
 

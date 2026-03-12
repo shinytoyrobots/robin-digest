@@ -10,6 +10,7 @@ export interface GatheredContext {
   recentDigestSnippets: { insight: string; source: string; source_url: string; commentable: boolean; published_at: string | null; pipeline_id: string }[];
   recentFeedback: { reaction: string; suggestion_title: string; note?: string }[];
   missionStatement: string | null;
+  recentlyRecommendedHosts: Set<string>;
 }
 
 const SECTION_FEEDS: { url: string; category: "fiction" | "non-fiction" }[] = [
@@ -258,6 +259,42 @@ function fetchRecentFeedback(): GatheredContext["recentFeedback"] {
   }
 }
 
+function fetchRecentlyRecommendedHosts(): Set<string> {
+  try {
+    const db = getDb();
+    const rows = db
+      .prepare(
+        `SELECT suggestions FROM daily_directions
+         WHERE created_at > datetime('now', '-3 days')
+         ORDER BY created_at DESC`
+      )
+      .all() as { suggestions: string }[];
+
+    const hosts = new Set<string>();
+    for (const row of rows) {
+      try {
+        const suggestions = JSON.parse(row.suggestions) as { category?: string; source_url?: string }[];
+        for (const s of suggestions) {
+          if (s.category === "engage" && s.source_url) {
+            try {
+              const host = new URL(s.source_url).hostname.replace(/^www\./, "");
+              hosts.add(host);
+            } catch {
+              // malformed URL — skip
+            }
+          }
+        }
+      } catch {
+        // malformed JSON — skip
+      }
+    }
+    return hosts;
+  } catch (err) {
+    console.error("[direction] Failed to fetch recently recommended hosts:", err);
+    return new Set();
+  }
+}
+
 function fetchMissionStatement(): string | null {
   try {
     return getSetting("direction.mission_statement");
@@ -277,6 +314,7 @@ export async function gatherContext(): Promise<GatheredContext> {
   const recentDigestSnippets = fetchRecentDigestSnippets();
   const recentFeedback = fetchRecentFeedback();
   const missionStatement = fetchMissionStatement();
+  const recentlyRecommendedHosts = fetchRecentlyRecommendedHosts();
 
-  return { recentToolUsage, activeContexts, recentWritings, recentDigestSnippets, recentFeedback, missionStatement };
+  return { recentToolUsage, activeContexts, recentWritings, recentDigestSnippets, recentFeedback, missionStatement, recentlyRecommendedHosts };
 }
