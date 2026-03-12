@@ -133,7 +133,7 @@ async function suggestSource() {
     });
     if (!res.ok) {
       const e = await res.json();
-      errEl.textContent = e.error; errEl.style.display = '';
+      errEl.textContent = e.error; errEl.style.display = 'block';
       return;
     }
     suggestData = await res.json();
@@ -141,10 +141,10 @@ async function suggestSource() {
     document.getElementById('suggest-rationale').textContent = suggestData.rationale;
     const sel = document.getElementById('suggest-pipeline');
     sel.value = suggestData.pipeline_id;
-    document.getElementById('suggest-result').style.display = '';
+    document.getElementById('suggest-result').style.display = 'block';
     updateConfirmBtn();
   } catch (e) {
-    errEl.textContent = 'Request failed: ' + e.message; errEl.style.display = '';
+    errEl.textContent = 'Request failed: ' + e.message; errEl.style.display = 'block';
   } finally {
     btn.disabled = false; btn.textContent = 'Suggest';
   }

@@ -305,6 +305,17 @@ adminRouter.post("/admin/run-pipeline", express.json(), (req, res) => {
   }
 });
 
+adminRouter.post("/admin/run-stale-cleanup", (_req, res) => {
+  try {
+    const deleted = autoDeleteStaleSources();
+    const purged = purgeOldDeletedSources();
+    console.error(`[admin] Stale cleanup: ${deleted} auto-deleted, ${purged} purged`);
+    res.json({ deleted, purged });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 adminRouter.post("/admin/run-direction", express.json(), (_req, res) => {
   console.error("[admin] Manual direction generation");
   res.status(202).json({ status: "accepted" });
