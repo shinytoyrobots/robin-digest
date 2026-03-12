@@ -20,6 +20,30 @@ const SECTION_FEEDS: { url: string; category: "fiction" | "non-fiction" }[] = [
   { url: "https://www.robin-cannon.com/feed?sectionId=285509", category: "fiction" },    // alternate-frequencies
 ];
 
+// --- Knowledge vault ---
+const VAULT_REPO = "shinytoyrobots/knowledge-vault";
+const VAULT_API = `https://api.github.com/repos/${VAULT_REPO}/contents`;
+const VAULT_RAW = `https://raw.githubusercontent.com/${VAULT_REPO}/main`;
+
+const VAULT_FICTION_POOLS = [
+  "Fiction/Standalone/Flash",
+  "Fiction/Standalone/Flash/Ripper and Rayne",
+  "Fiction/StaticDrift/Shorts/Finals",
+  "Fiction/StaticDrift/GlobalBible/Themes and Philosophies",
+];
+
+const VAULT_NONFICTION_POOLS = [
+  "Non-Fiction/Field Notes",
+  "Non-Fiction/Signals",
+  "Non-Fiction/For submission",
+];
+
+// Non-content files to skip when listing vault pools
+const VAULT_SKIP = new Set(["-Series Overview-.md", "README.md", "New Drama. Old Sins. Dangerous Chemistry..md"]);
+
+const VAULT_FICTION_COUNT = 4;
+const VAULT_NONFICTION_COUNT = 4;
+
 // Domains where articles can be replied to (e.g. via Substack comments)
 const COMMENTABLE_DOMAINS = ["substack.com"];
 
@@ -29,6 +53,39 @@ function isCommentable(url: string): boolean {
 
 // Writing cache is considered fresh if populated within this window
 const WRITING_CACHE_TTL_HOURS = 24;
+
+async function fetchVaultPool(path: string): Promise<{ title: string; vaultPath: string }[]> {
+  const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+  const res = await fetch(`${VAULT_API}/${encodedPath}`, {
+    headers: { "Accept": "application/vnd.github+json", "User-Agent": "robin-digest" },
+    signal: AbortSignal.timeout(config.fetchTimeoutMs),
+  });
+  if (!res.ok) return [];
+  const files = (await res.json()) as { name: string; type: string; path: string }[];
+  return files
+    .filter(f => f.type === "file" && f.name.endsWith(".md") && !VAULT_SKIP.has(f.name))
+    .map(f => ({ title: f.name.replace(/\.md$/, ""), vaultPath: f.path }));
+}
+
+async function fetchVaultFile(vaultPath: string): Promise<string> {
+  const encodedPath = vaultPath.split("/").map(encodeURIComponent).join("/");
+  const res = await fetch(`${VAULT_RAW}/${encodedPath}`, {
+    headers: { "User-Agent": "robin-digest" },
+    signal: AbortSignal.timeout(config.fetchTimeoutMs),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status} fetching vault file ${vaultPath}`);
+  const text = await res.text();
+  return text.replace(/<!--[\s\S]*?-->/g, "").trim();
+}
+
+function sampleN<T>(arr: T[], n: number): T[] {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy.slice(0, n);
+}
 
 async function fetchJson(url: string): Promise<unknown> {
   const headers: Record<string, string> = { Accept: "application/json" };
@@ -134,10 +191,40 @@ async function fetchWritingsWithContent(): Promise<GatheredContext["recentWritin
       return db2 - da;
     };
 
-    const selected = [
+    const rssSelected = [
       ...fiction.sort(byDate).slice(0, 4),
       ...nonFiction.sort(byDate).slice(0, 4),
     ];
+
+    // --- Vault: random selection from knowledge vault pools ---
+    const vaultArticles: RawArticle[] = [];
+    try {
+      const rssLookup = new Set(rssSelected.map(a => a.title.toLowerCase().trim()));
+
+      const [fictionFiles, nonfictionFiles] = await Promise.all([
+        Promise.all(VAULT_FICTION_POOLS.map(fetchVaultPool)).then(arrs => arrs.flat()),
+        Promise.all(VAULT_NONFICTION_POOLS.map(fetchVaultPool)).then(arrs => arrs.flat()),
+      ]);
+
+      const availFiction = fictionFiles.filter(f => !rssLookup.has(f.title.toLowerCase().trim()));
+      const availNonfiction = nonfictionFiles.filter(f => !rssLookup.has(f.title.toLowerCase().trim()));
+
+      await Promise.allSettled([
+        ...sampleN(availFiction, VAULT_FICTION_COUNT).map(async f => {
+          const content = await fetchVaultFile(f.vaultPath);
+          vaultArticles.push({ url: `vault:${f.vaultPath}`, title: f.title, content, category: "fiction" });
+        }),
+        ...sampleN(availNonfiction, VAULT_NONFICTION_COUNT).map(async f => {
+          const content = await fetchVaultFile(f.vaultPath);
+          vaultArticles.push({ url: `vault:${f.vaultPath}`, title: f.title, content, category: "non-fiction" });
+        }),
+      ]);
+      console.error(`[direction] Vault sample: ${vaultArticles.length} files (${vaultArticles.filter(a => a.category === "fiction").length} fiction, ${vaultArticles.filter(a => a.category === "non-fiction").length} non-fiction)`);
+    } catch (err) {
+      console.error("[direction] Vault fetch failed, continuing without vault context:", err);
+    }
+
+    const selected = [...rssSelected, ...vaultArticles];
 
     if (selected.length === 0) return [];
 
@@ -161,7 +248,7 @@ async function fetchWritingsWithContent(): Promise<GatheredContext["recentWritin
       }
     })();
 
-    console.error(`[direction] Writing cache refreshed (${selected.length} entries)`);
+    console.error(`[direction] Writing cache refreshed (${rssSelected.length} RSS + ${vaultArticles.length} vault)`);
 
     const rows = db
       .prepare(`SELECT url, title, category, content FROM writing_cache WHERE url IN (${placeholders})`)
