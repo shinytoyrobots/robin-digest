@@ -14,8 +14,29 @@ const SOURCE_LIMIT = 20;
 
 adminRouter.get("/admin/sources", (_req, res) => {
   const db = getDb();
-  const sources = db.prepare("SELECT pipeline_id, name, url, enabled FROM sources ORDER BY pipeline_id, url").all();
+  const sources = db.prepare("SELECT pipeline_id, name, url, feed_url, feed_type, enabled, last_fetched_at FROM sources ORDER BY pipeline_id, url").all();
   res.json(sources);
+});
+
+adminRouter.get("/admin/stats", (_req, res) => {
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT
+      s.pipeline_id,
+      s.name,
+      s.url,
+      s.feed_url,
+      s.enabled,
+      s.last_fetched_at,
+      COUNT(a.id) AS total_articles,
+      SUM(CASE WHEN a.id IN (SELECT source_article_id FROM snippets WHERE source_article_id IS NOT NULL) THEN 1 ELSE 0 END) AS featured_articles,
+      COUNT(a.id) - SUM(CASE WHEN a.id IN (SELECT source_article_id FROM snippets WHERE source_article_id IS NOT NULL) THEN 1 ELSE 0 END) AS available_articles
+    FROM sources s
+    LEFT JOIN articles a ON a.source_id = s.id
+    GROUP BY s.id
+    ORDER BY s.pipeline_id, s.name
+  `).all();
+  res.json(rows);
 });
 
 adminRouter.get("/sources", (req, res) => {
