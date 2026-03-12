@@ -1,6 +1,6 @@
 import { esc, SHARED_CSS, FONT_LINK } from "./shared.js";
 
-type SourceRow = { pipeline_id: string; pipeline_name: string; name: string; url: string; enabled: number; latest_article_at: string | null };
+type SourceRow = { pipeline_id: string; pipeline_name: string; name: string; url: string; enabled: number; last_fetched_at: string | null; latest_article_at: string | null };
 type PipelineInfo = { id: string; name: string };
 type DeletedSourceRow = { id: number; pipeline_id: string; pipeline_name: string; name: string; url: string; auto_deleted: number; deleted_at: string };
 
@@ -75,7 +75,7 @@ export function renderSourcesPage(sources: SourceRow[], pipelines: PipelineInfo[
     body += `<table class="source-table"><thead><tr><th>Name</th><th>URL</th><th></th></tr></thead><tbody>`;
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     for (const s of pipeline.sources) {
-      const isStale = !s.latest_article_at || s.latest_article_at < thirtyDaysAgo;
+      const isStale = s.last_fetched_at && (!s.latest_article_at || s.latest_article_at < thirtyDaysAgo);
       const disabledTag = s.enabled ? "" : `<span class="disabled-tag">disabled</span>`;
       const staleTag = isStale ? `<span class="stale-tag" title="${s.latest_article_at ? `Last article: ${s.latest_article_at.slice(0, 10)}` : "No articles fetched"}">stale</span>` : "";
       body += `<tr class="${s.enabled ? "" : "disabled"}">`;
