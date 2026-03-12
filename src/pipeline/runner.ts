@@ -53,38 +53,47 @@ export async function runPipeline(pipelineId: string): Promise<PipelineRunResult
     errors.push(`Fetching failed: ${err}`);
   }
 
-  // Step 4: Curate digest
-  try {
-    const result = await curateDigest(pipeline);
-    if (result) {
-      // Step 5: Store digest and snippets
-      const insertDigest = db.prepare(
-        "INSERT INTO digests (pipeline_id, title) VALUES (?, ?)"
-      );
-      const digestResult = insertDigest.run(pipelineId, result.title);
-      digestId = digestResult.lastInsertRowid as number;
-
-      const insertSnippet = db.prepare(`
-        INSERT INTO snippets (digest_id, key_insight, source_article_id, source_url, source_name, position, is_fresh)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `);
-
-      const tx = db.transaction(() => {
-        result.snippets.forEach((s, i) => {
-          insertSnippet.run(
-            digestId, s.key_insight,
-            s.source_article_id || null, s.source_url, s.source_name, i,
-            s.is_fresh === false ? 0 : 1
-          );
-        });
-      });
-      tx();
-
-      snippetsCreated = result.snippets.length;
-      console.error(`[runner] Created digest #${digestId} with ${snippetsCreated} snippets for ${pipelineId}`);
+  // Step 4: Curate digest (retry up to 2 times on transient API failure)
+  let result = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      result = await curateDigest(pipeline);
+      break;
+    } catch (err) {
+      if (attempt < 3) {
+        console.error(`[runner] Curation attempt ${attempt} failed for ${pipelineId}, retrying in 10s: ${err}`);
+        await new Promise(r => setTimeout(r, 10_000));
+      } else {
+        errors.push(`Curation failed after 3 attempts: ${err}`);
+      }
     }
-  } catch (err) {
-    errors.push(`Curation failed: ${err}`);
+  }
+  if (result) {
+    // Step 5: Store digest and snippets
+    const insertDigest = db.prepare(
+      "INSERT INTO digests (pipeline_id, title) VALUES (?, ?)"
+    );
+    const digestResult = insertDigest.run(pipelineId, result.title);
+    digestId = digestResult.lastInsertRowid as number;
+
+    const insertSnippet = db.prepare(`
+      INSERT INTO snippets (digest_id, key_insight, source_article_id, source_url, source_name, position, is_fresh)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const tx = db.transaction(() => {
+      result!.snippets.forEach((s, i) => {
+        insertSnippet.run(
+          digestId, s.key_insight,
+          s.source_article_id || null, s.source_url, s.source_name, i,
+          s.is_fresh === false ? 0 : 1
+        );
+      });
+    });
+    tx();
+
+    snippetsCreated = result.snippets.length;
+    console.error(`[runner] Created digest #${digestId} with ${snippetsCreated} snippets for ${pipelineId}`);
   }
 
   return {
