@@ -190,6 +190,33 @@ Return JSON only (no markdown):
   }
 });
 
+adminRouter.get("/admin/curator-preview", (_req, res) => {
+  const db = getDb();
+  const pipelines = db.prepare("SELECT id, name FROM pipelines WHERE enabled = 1 ORDER BY name").all() as { id: string; name: string }[];
+
+  const result: Record<string, { pipeline: string; article_count: number; articles: unknown[] }> = {};
+  for (const p of pipelines) {
+    const articles = db.prepare(`
+      WITH latest_per_source AS (
+        SELECT a.id,
+               ROW_NUMBER() OVER (PARTITION BY a.source_id ORDER BY COALESCE(a.published_at, a.fetched_at) DESC) AS rn
+        FROM articles a
+        JOIN sources s ON a.source_id = s.id
+        WHERE s.pipeline_id = ?
+          AND a.id NOT IN (SELECT source_article_id FROM snippets WHERE source_article_id IS NOT NULL)
+      )
+      SELECT a.id, a.title, a.published_at, a.fetched_at, s.name as source_name
+      FROM articles a
+      JOIN sources s ON a.source_id = s.id
+      JOIN latest_per_source lps ON a.id = lps.id AND lps.rn = 1
+      ORDER BY COALESCE(a.published_at, a.fetched_at) DESC
+      LIMIT 25
+    `).all(p.id);
+    result[p.id] = { pipeline: p.name, article_count: articles.length, articles };
+  }
+  res.json(result);
+});
+
 adminRouter.post("/admin/run-pipeline", express.json(), (req, res) => {
   const pipelineId = req.body?.pipeline_id as string | undefined;
   if (pipelineId) {
