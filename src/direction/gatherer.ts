@@ -23,7 +23,6 @@ const SECTION_FEEDS: { url: string; category: "fiction" | "non-fiction" }[] = [
 // --- Knowledge vault ---
 const VAULT_REPO = "shinytoyrobots/knowledge-vault";
 const VAULT_API = `https://api.github.com/repos/${VAULT_REPO}/contents`;
-const VAULT_RAW = `https://raw.githubusercontent.com/${VAULT_REPO}/main`;
 
 const VAULT_FICTION_POOLS = [
   "Fiction/Standalone/Flash",
@@ -54,10 +53,19 @@ function isCommentable(url: string): boolean {
 // Writing cache is considered fresh if populated within this window
 const WRITING_CACHE_TTL_HOURS = 24;
 
+function vaultHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    "Accept": "application/vnd.github+json",
+    "User-Agent": "robin-digest",
+  };
+  if (config.githubToken) headers["Authorization"] = `Bearer ${config.githubToken}`;
+  return headers;
+}
+
 async function fetchVaultPool(path: string): Promise<{ title: string; vaultPath: string }[]> {
   const encodedPath = path.split("/").map(encodeURIComponent).join("/");
   const res = await fetch(`${VAULT_API}/${encodedPath}`, {
-    headers: { "Accept": "application/vnd.github+json", "User-Agent": "robin-digest" },
+    headers: vaultHeaders(),
     signal: AbortSignal.timeout(config.fetchTimeoutMs),
   });
   if (!res.ok) return [];
@@ -69,12 +77,14 @@ async function fetchVaultPool(path: string): Promise<{ title: string; vaultPath:
 
 async function fetchVaultFile(vaultPath: string): Promise<string> {
   const encodedPath = vaultPath.split("/").map(encodeURIComponent).join("/");
-  const res = await fetch(`${VAULT_RAW}/${encodedPath}`, {
-    headers: { "User-Agent": "robin-digest" },
+  const res = await fetch(`${VAULT_API}/${encodedPath}`, {
+    headers: vaultHeaders(),
     signal: AbortSignal.timeout(config.fetchTimeoutMs),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status} fetching vault file ${vaultPath}`);
-  const text = await res.text();
+  const { content, encoding } = (await res.json()) as { content: string; encoding: string };
+  if (encoding !== "base64") throw new Error(`Unexpected encoding: ${encoding}`);
+  const text = Buffer.from(content, "base64").toString("utf-8");
   return text.replace(/<!--[\s\S]*?-->/g, "").trim();
 }
 

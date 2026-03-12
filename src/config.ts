@@ -22,6 +22,7 @@ export const config = {
   robinMcpUrl: process.env.ROBIN_MCP_URL || "http://localhost:3001",
   robinMcpToken: process.env.ROBIN_MCP_TOKEN || "",
   directionCron: process.env.DIRECTION_CRON || "30 3 * * *",
+  githubToken: process.env.GITHUB_TOKEN || "",
 };
 
 export function loadPipelineConfigs(): PipelineConfig[] {
