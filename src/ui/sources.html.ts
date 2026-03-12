@@ -2,6 +2,7 @@ import { esc, SHARED_CSS, FONT_LINK } from "./shared.js";
 
 type SourceRow = { pipeline_id: string; pipeline_name: string; name: string; url: string; enabled: number; latest_article_at: string | null };
 type PipelineInfo = { id: string; name: string };
+type DeletedSourceRow = { id: number; pipeline_id: string; pipeline_name: string; name: string; url: string; auto_deleted: number; deleted_at: string };
 
 const SOURCE_LIMIT = 20;
 
@@ -34,9 +35,21 @@ const PAGE_CSS = `${SHARED_CSS}
 .rationale{color:#525252;font-size:.75rem;font-style:italic;margin-bottom:.75rem}
 .confirm-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .limit-msg{color:#da1e28;font-size:.75rem;display:none}
-.suggest-error{background:#fff1f1;border-left:3px solid #da1e28;padding:.5rem 1rem;margin-top:.5rem;font-size:.8125rem;color:#161616;display:none}`;
+.suggest-error{background:#fff1f1;border-left:3px solid #da1e28;padding:.5rem 1rem;margin-top:.5rem;font-size:.8125rem;color:#161616;display:none}
+.deleted-section{margin-top:3rem;border-top:2px solid #e0e0e0;padding-top:1.5rem}
+.deleted-section h2{font-size:1rem;font-weight:600;color:#525252;margin-bottom:.75rem}
+.deleted-table{width:100%;border-collapse:collapse}
+.deleted-table th{text-align:left;font-size:.75rem;font-weight:600;color:#525252;text-transform:uppercase;letter-spacing:.04em;padding:.375rem .5rem;border-bottom:2px solid #e0e0e0}
+.deleted-table td{padding:.5rem .5rem;border-bottom:1px solid #e0e0e0;font-size:.8125rem;vertical-align:middle}
+.deleted-table td:first-child{font-weight:500;width:30%}
+.deleted-table td:nth-child(2){color:#6f6f6f;font-size:.75rem;width:18%}
+.deleted-table td:nth-child(3){color:#6f6f6f;font-family:'IBM Plex Mono',monospace;font-size:.75rem}
+.deleted-table td:last-child{width:80px;text-align:right}
+.auto-tag{display:inline-block;background:#fff8e1;color:#8a5700;font-size:.6875rem;padding:1px 5px;border-radius:2px;font-family:'IBM Plex Mono',monospace;margin-left:6px;vertical-align:middle;border:1px solid #f5c842}
+.btn-reactivate{background:none;border:1px solid #0f62fe;color:#0f62fe;font-size:.75rem;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;padding:3px 8px;border-radius:2px}
+.btn-reactivate:hover{background:#0f62fe;color:#fff}`;
 
-export function renderSourcesPage(sources: SourceRow[], pipelines: PipelineInfo[], token: string): string {
+export function renderSourcesPage(sources: SourceRow[], pipelines: PipelineInfo[], deleted: DeletedSourceRow[], token: string): string {
   const byPipeline = new Map<string, { name: string; sources: SourceRow[] }>();
   for (const s of sources) {
     if (!byPipeline.has(s.pipeline_id)) {
@@ -72,6 +85,27 @@ export function renderSourcesPage(sources: SourceRow[], pipelines: PipelineInfo[
       body += `</tr>`;
     }
     body += `</tbody></table></section>`;
+  }
+
+  let deletedSection = "";
+  if (deleted.length > 0) {
+    const now = Date.now();
+    deletedSection = `<div class="deleted-section">
+<h2>Recently Deleted</h2>
+<table class="deleted-table"><thead><tr><th>Name</th><th>Pipeline</th><th>URL</th><th></th></tr></thead><tbody>`;
+    for (const d of deleted) {
+      const daysAgo = Math.floor((now - new Date(d.deleted_at).getTime()) / (24 * 60 * 60 * 1000));
+      const daysLeft = 7 - daysAgo;
+      const autoTag = d.auto_deleted ? `<span class="auto-tag">auto</span>` : "";
+      const expiryNote = `<span style="color:#6f6f6f;font-size:.75rem">${daysLeft}d left</span>`;
+      deletedSection += `<tr>`;
+      deletedSection += `<td>${esc(d.name)}${autoTag}</td>`;
+      deletedSection += `<td>${esc(d.pipeline_name)}</td>`;
+      deletedSection += `<td><a href="${esc(d.url)}" target="_blank" rel="noopener" style="color:#6f6f6f;font-family:'IBM Plex Mono',monospace;font-size:.75rem">${esc(d.url)}</a></td>`;
+      deletedSection += `<td style="text-align:right">${expiryNote}&nbsp;<button class="btn-reactivate" onclick="reactivateSource(${d.id},${esc(JSON.stringify(d.name))})">Reactivate</button></td>`;
+      deletedSection += `</tr>`;
+    }
+    deletedSection += `</tbody></table></div>`;
   }
 
   const pipelineOptions = pipelines.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
@@ -150,7 +184,7 @@ async function confirmSource() {
 }
 
 async function deleteSource(pipelineId, url, name) {
-  if (!confirm('Delete "' + name + '"?\\n\\nThis cannot be undone.')) return;
+  if (!confirm('Delete "' + name + '"?\\n\\nIt will be kept in Recently Deleted for 7 days.')) return;
   const res = await fetch('/admin/delete-source', {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOKEN },
@@ -158,6 +192,17 @@ async function deleteSource(pipelineId, url, name) {
   });
   if (res.ok) { location.reload(); }
   else { const e = await res.json(); alert('Delete failed: ' + e.error); }
+}
+
+async function reactivateSource(id, name) {
+  if (!confirm('Reactivate "' + name + '"?\\n\\nIt will be restored to its original pipeline. Articles will need to be re-fetched.')) return;
+  const res = await fetch('/admin/reactivate-source', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOKEN },
+    body: JSON.stringify({ id })
+  });
+  if (res.ok) { location.reload(); }
+  else { const e = await res.json(); alert('Reactivate failed: ' + e.error); }
 }
 
 document.getElementById('add-url').addEventListener('keydown', e => {
@@ -196,7 +241,7 @@ ${FONT_LINK}
 </div>
 
 ${body}
-
+${deletedSection}
 <div class="footer">robin-digest &middot; <a href="/digests">Digests</a> &middot; <a href="/dailydirection">Daily Direction</a></div>
 <script>${script}</script>
 </body></html>`;

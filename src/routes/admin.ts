@@ -12,6 +12,51 @@ export const adminRouter = express.Router();
 
 const SOURCE_LIMIT = 20;
 
+type DeletedSourceRecord = {
+  id: number; pipeline_id: string; pipeline_name: string;
+  name: string; url: string; feed_url: string | null; feed_type: string | null;
+  auto_deleted: number; deleted_at: string;
+};
+
+function softDeleteSource(
+  db: ReturnType<typeof getDb>,
+  source: { id: number; pipeline_id: string; pipeline_name: string; name: string; url: string; feed_url: string | null; feed_type: string | null },
+  autoDeleted: boolean
+): void {
+  db.transaction(() => {
+    db.prepare(
+      "INSERT INTO deleted_sources (pipeline_id, pipeline_name, name, url, feed_url, feed_type, auto_deleted) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    ).run(source.pipeline_id, source.pipeline_name, source.name, source.url, source.feed_url, source.feed_type, autoDeleted ? 1 : 0);
+    db.prepare("UPDATE snippets SET source_article_id = NULL WHERE source_article_id IN (SELECT id FROM articles WHERE source_id = ?)").run(source.id);
+    db.prepare("DELETE FROM sources WHERE id = ?").run(source.id);
+  })();
+}
+
+export function autoDeleteStaleSources(): number {
+  const db = getDb();
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const stale = db.prepare(`
+    SELECT * FROM (
+      SELECT s.id, s.pipeline_id, p.name as pipeline_name, s.name, s.url, s.feed_url, s.feed_type,
+        (SELECT MAX(COALESCE(a.published_at, a.fetched_at)) FROM articles a WHERE a.source_id = s.id) as latest_article_at
+      FROM sources s
+      JOIN pipelines p ON s.pipeline_id = p.id
+      WHERE s.last_fetched_at IS NOT NULL
+    ) WHERE latest_article_at IS NULL OR latest_article_at < ?
+  `).all(thirtyDaysAgo) as (DeletedSourceRecord & { latest_article_at: string | null })[];
+  for (const source of stale) {
+    softDeleteSource(db, source, true);
+  }
+  return stale.length;
+}
+
+export function purgeOldDeletedSources(): number {
+  const db = getDb();
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const result = db.prepare("DELETE FROM deleted_sources WHERE deleted_at < ?").run(sevenDaysAgo);
+  return result.changes as number;
+}
+
 adminRouter.get("/admin/sources", (_req, res) => {
   const db = getDb();
   const sources = db.prepare("SELECT pipeline_id, name, url, feed_url, feed_type, enabled, last_fetched_at FROM sources ORDER BY pipeline_id, url").all();
@@ -48,8 +93,11 @@ adminRouter.get("/sources", (req, res) => {
     "ORDER BY p.name, s.enabled DESC, s.name"
   ).all() as { pipeline_id: string; pipeline_name: string; name: string; url: string; enabled: number; latest_article_at: string | null }[];
   const pipelines = db.prepare("SELECT id, name FROM pipelines WHERE enabled = 1 ORDER BY name").all() as { id: string; name: string }[];
+  const deleted = db.prepare(
+    "SELECT id, pipeline_id, pipeline_name, name, url, auto_deleted, deleted_at FROM deleted_sources ORDER BY deleted_at DESC"
+  ).all() as DeletedSourceRecord[];
   const token = (req.query.token as string | undefined) || "";
-  res.type("html").send(renderSourcesPage(sources, pipelines, token));
+  res.type("html").send(renderSourcesPage(sources, pipelines, deleted, token));
 });
 
 adminRouter.post("/admin/update-source", express.json(), (req, res) => {
@@ -114,16 +162,34 @@ adminRouter.delete("/admin/delete-source", express.json(), (req, res) => {
   }
   try {
     const db = getDb();
-    const source = db.prepare("SELECT id FROM sources WHERE pipeline_id = ? AND url = ?").get(pipeline_id, url) as { id: number } | undefined;
+    const source = db.prepare(
+      "SELECT s.id, s.name, s.feed_url, s.feed_type, p.name as pipeline_name FROM sources s JOIN pipelines p ON s.pipeline_id = p.id WHERE s.pipeline_id = ? AND s.url = ?"
+    ).get(pipeline_id, url) as { id: number; name: string; feed_url: string | null; feed_type: string | null; pipeline_name: string } | undefined;
     if (!source) {
       res.json({ pipeline_id, url, deleted: 0 });
       return;
     }
-    db.transaction(() => {
-      db.prepare("UPDATE snippets SET source_article_id = NULL WHERE source_article_id IN (SELECT id FROM articles WHERE source_id = ?)").run(source.id);
-      db.prepare("DELETE FROM sources WHERE id = ?").run(source.id);
-    })();
+    softDeleteSource(db, { ...source, pipeline_id, url }, false);
     res.json({ pipeline_id, url, deleted: 1 });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+adminRouter.post("/admin/reactivate-source", express.json(), (req, res) => {
+  const { id } = req.body as { id: number };
+  if (!id) { res.status(400).json({ error: "id required" }); return; }
+  const db = getDb();
+  const deleted = db.prepare("SELECT * FROM deleted_sources WHERE id = ?").get(id) as DeletedSourceRecord | undefined;
+  if (!deleted) { res.status(404).json({ error: "deleted source not found" }); return; }
+  try {
+    db.transaction(() => {
+      db.prepare(
+        "INSERT OR IGNORE INTO sources (pipeline_id, name, url, feed_url, feed_type) VALUES (?, ?, ?, ?, ?)"
+      ).run(deleted.pipeline_id, deleted.name, deleted.url, deleted.feed_url, deleted.feed_type);
+      db.prepare("DELETE FROM deleted_sources WHERE id = ?").run(id);
+    })();
+    res.json({ reactivated: 1, pipeline_id: deleted.pipeline_id, url: deleted.url });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }

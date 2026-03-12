@@ -96,6 +96,18 @@ function initSchema(db: Database.Database): void {
       content TEXT NOT NULL,
       fetched_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS deleted_sources (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      pipeline_id TEXT NOT NULL,
+      pipeline_name TEXT NOT NULL,
+      name TEXT NOT NULL,
+      url TEXT NOT NULL,
+      feed_url TEXT,
+      feed_type TEXT,
+      auto_deleted INTEGER NOT NULL DEFAULT 0,
+      deleted_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // Indexes
@@ -109,6 +121,7 @@ function initSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_snippets_source_article_id ON snippets(source_article_id);
     CREATE INDEX IF NOT EXISTS idx_digests_pipeline_created ON digests(pipeline_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_direction_feedback_created_at ON direction_feedback(created_at);
+    CREATE INDEX IF NOT EXISTS idx_deleted_sources_deleted_at ON deleted_sources(deleted_at);
   `);
 
   // Migrations — add columns that may not exist on older databases
