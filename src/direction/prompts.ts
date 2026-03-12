@@ -100,7 +100,7 @@ No markdown, no preamble, no explanation — just the JSON array.`;
       }
     }
     if (vaultNonFiction.length > 0) {
-      parts.push("\n## [INTERNAL] Non-fiction vault (unpublished / archive essays)");
+      parts.push("\n## [INTERNAL] Non-fiction vault (previously published essays — already out in the world, do NOT suggest publishing)");
       for (const w of vaultNonFiction) {
         parts.push(`### ${w.title}\n\n${w.excerpt}`);
       }
@@ -112,7 +112,7 @@ No markdown, no preamble, no explanation — just the JSON array.`;
       }
     }
     if (vaultFiction.length > 0) {
-      parts.push("\n## [INTERNAL] Fiction vault (shorts, flash fiction, world-building)");
+      parts.push("\n## [INTERNAL] Fiction vault (previously published shorts, flash fiction, world-building — already out in the world, do NOT suggest publishing)");
       for (const w of vaultFiction) {
         parts.push(`### ${w.title}\n\n${w.excerpt}`);
       }
