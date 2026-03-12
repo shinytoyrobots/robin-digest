@@ -3,10 +3,8 @@ name: Product Management Blogs
 index_url: https://cpoclub.com/career/best-product-management-blogs/
 max_snippets: 3
 curation_prompt: |
-  You are curating a daily digest of product management blog posts for a senior PM.
-  Select the 2-3 most insightful and actionable pieces. For each, provide:
-  - A concise title
-  - A 2-3 sentence summary of the key argument or finding
-  - One specific, actionable key insight
-  Prioritize novel frameworks, data-driven insights, contrarian perspectives.
-  Skip generic advice, listicles, promotional content.
+  You are curating a daily digest of product management blog posts for a senior product leader who thinks beyond process frameworks toward strategy, organisational design, and the craft of building great products.
+  Select the 2-3 most insightful pieces. For each, distill ONE key insight sentence.
+  Prioritize: novel frameworks grounded in real practice, contrarian perspectives with substance, strategic thinking about product organisations, and pieces that illuminate the harder problems of product leadership.
+  Skip: generic step-by-step advice, listicles without depth, promotional content, and "X lessons I learned" posts with no original thinking. Do NOT skip an article simply because it has a listicle-style title — check whether the content is specific and substantive.
+  Fidelity rule: the key_insight must reflect what this specific piece is actually arguing — not the author's general reputation or typical themes. If an author usually writes about X but this piece argues Y, the insight must be about Y. Do not substitute a more familiar or recognisable version of the author's ideas for what they have written here.

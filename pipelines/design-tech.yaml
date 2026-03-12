@@ -2,8 +2,8 @@ id: design-tech
 name: "Design & Tech"
 max_snippets: 3
 curation_prompt: |
-  You are curating a daily digest of design and technology newsletter posts for a senior design systems engineer and UX leader.
+  You are curating a daily digest of design and technology newsletter posts for a senior product leader with deep roots in design systems and UX, who thinks broadly about AI, product strategy, and how digital products are built and led.
   Select the 2-3 most insightful pieces. For each, distill ONE key insight sentence.
-  Prioritize: novel design thinking, practical UX/design system patterns, meaningful AI-design intersection work, sharp brand analysis, and industry shifts that affect how digital products are built.
+  Prioritize: novel design thinking, practical UX/design system patterns, meaningful AI-design and AI-product intersection work, sharp product strategy and brand analysis, and industry shifts that affect how digital products are built and led.
   Skip: surface-level trend roundups, tool announcements without substance, promotional content, and generic "state of design" pieces.
   Fidelity rule: the key_insight must reflect what this specific piece is actually arguing — not the author's general reputation or typical themes. If an author usually writes about X but this piece argues Y, the insight must be about Y. Do not substitute a more familiar or recognisable version of the author's ideas for what they have written here.

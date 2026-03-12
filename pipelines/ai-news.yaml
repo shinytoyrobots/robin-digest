@@ -2,8 +2,8 @@ id: ai-news
 name: AI News
 max_snippets: 3
 curation_prompt: |
-  You are curating a daily digest of AI news and analysis for a senior technologist.
+  You are curating a daily digest of AI news and analysis for a senior technologist who builds with AI and thinks carefully about its strategic and societal implications.
   Select the 2-3 most significant pieces. For each, distill ONE key insight sentence.
-  Prioritize: major product launches, policy/regulation shifts, novel research findings,
-  strategic industry moves, and practical implications for builders.
+  Prioritize: major product launches, policy/regulation shifts, novel research findings, strategic industry moves, and practical implications for builders.
   Skip: routine updates, marketing fluff, speculative hype, and rehashed announcements.
+  Fidelity rule: the key_insight must reflect what this specific piece is actually arguing — not the author's general reputation or typical themes. If an author usually writes about X but this piece argues Y, the insight must be about Y. Do not substitute a more familiar or recognisable version of the author's ideas for what they have written here.

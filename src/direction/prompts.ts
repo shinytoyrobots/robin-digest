@@ -37,7 +37,8 @@ Key principles:
 - Reference SOURCES. Note which context data informed each suggestion.
 - For source_refs: IMPORTANT — external sources (digest snippets, blog posts, articles) MUST use the format "description|URL" (e.g. "Article Title|https://example.com/article") so they render as clickable links. Robin's own writings/notes should be plain text with no URL. The URL is available in the context data — always include it.
 - SUMMARISE BEFORE CONNECTING. Before proposing any connection between an external source and Robin's work or frameworks, internally ask: what is this source actually arguing (in one sentence)? What is Robin's work actually arguing (in one sentence)? Only propose the connection if those two summaries share substance — not just vocabulary. Discard matches that rely on shared words with different meanings.
-- CONNECT OUTWARD. Regular suggestions (non-engage) should almost always ground themselves in the intersection of Robin's own work and at least one external source from the digest. Pure self-reflection with no external anchor ("revisit this piece", "continue this project") is less valuable than the same idea sparked by something Robin has been reading. The goal is intellectual cross-pollination, not introspection. The engage suggestions handle direct outreach — regular suggestions should handle the quieter work of letting external ideas fertilise Robin's own.
+- INTERNAL vs EXTERNAL. Robin's own writings and vault pieces (marked [INTERNAL] in the context) are internal material — his own thinking, fiction, and essays. Digest snippets are external material — what he has been reading. These are distinct and should be treated as such.
+- CONNECT OUTWARD. Regular suggestions (non-engage) must bridge internal and external: take something from Robin's own work or vault and connect it to at least one external source from the digest, or vice versa. A suggestion that only references internal material with no external anchor is incomplete. A suggestion that only references external material with no internal hook misses the point. The engage suggestions handle direct outreach — regular suggestions handle the quieter work of letting external ideas fertilise Robin's own work and thinking.
 
 Today's focus lens: "${angle}" — ${ANGLE_DESCRIPTIONS[angle]}
 
@@ -83,20 +84,37 @@ No markdown, no preamble, no explanation — just the JSON array.`;
   const parts: string[] = [];
 
   if (context.recentWritings.length > 0) {
+    const isVault = (w: { url: string }) => w.url.startsWith("vault:");
     const fiction = context.recentWritings.filter((w) => w.category === "fiction");
     const nonFiction = context.recentWritings.filter((w) => w.category === "non-fiction");
 
-    if (nonFiction.length > 0) {
-      parts.push("## Recent non-fiction (field-notes, signals)");
-      for (const w of nonFiction) {
+    const publishedNonFiction = nonFiction.filter((w) => !isVault(w));
+    const vaultNonFiction = nonFiction.filter(isVault);
+    const publishedFiction = fiction.filter((w) => !isVault(w));
+    const vaultFiction = fiction.filter(isVault);
+
+    if (publishedNonFiction.length > 0) {
+      parts.push("## [INTERNAL] Recently published non-fiction (robin-cannon.com)");
+      for (const w of publishedNonFiction) {
         parts.push(`### ${w.title}\n${w.url}\n\n${w.excerpt}`);
       }
     }
-
-    if (fiction.length > 0) {
-      parts.push("\n## Recent fiction (shiny-toy-robots, alternate-frequencies)");
-      for (const w of fiction) {
+    if (vaultNonFiction.length > 0) {
+      parts.push("\n## [INTERNAL] Non-fiction vault (unpublished / archive essays)");
+      for (const w of vaultNonFiction) {
+        parts.push(`### ${w.title}\n\n${w.excerpt}`);
+      }
+    }
+    if (publishedFiction.length > 0) {
+      parts.push("\n## [INTERNAL] Recently published fiction (robin-cannon.com)");
+      for (const w of publishedFiction) {
         parts.push(`### ${w.title}\n${w.url}\n\n${w.excerpt}`);
+      }
+    }
+    if (vaultFiction.length > 0) {
+      parts.push("\n## [INTERNAL] Fiction vault (shorts, flash fiction, world-building)");
+      for (const w of vaultFiction) {
+        parts.push(`### ${w.title}\n\n${w.excerpt}`);
       }
     }
   }
