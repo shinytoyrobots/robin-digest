@@ -27,12 +27,13 @@ function parseResponse(raw: string): Suggestion[] {
   }));
 }
 
-export async function generateDailyDirection(): Promise<number> {
+export async function generateDailyDirection(modelOverride?: string): Promise<number> {
   const context = await gatherContext();
   const angle = pickRandomAngle();
   const { system, user } = buildPrompt(context, angle);
 
-  const callOptions = { temperature: 0.9, model: config.directionModel };
+  const model = modelOverride ?? config.directionModel;
+  const callOptions = { temperature: 0.9, model };
   let inputTokens = 0;
   let outputTokens = 0;
 
@@ -78,11 +79,11 @@ export async function generateDailyDirection(): Promise<number> {
   const db = getDb();
   const result = db
     .prepare(
-      "INSERT INTO daily_directions (focus_angle, suggestions, context_summary, input_tokens, output_tokens) VALUES (?, ?, ?, ?, ?)"
+      "INSERT INTO daily_directions (focus_angle, suggestions, context_summary, input_tokens, output_tokens, model_used) VALUES (?, ?, ?, ?, ?, ?)"
     )
-    .run(angle, JSON.stringify(suggestions), contextSummary || null, inputTokens || null, outputTokens || null);
+    .run(angle, JSON.stringify(suggestions), contextSummary || null, inputTokens || null, outputTokens || null, model);
 
   const id = Number(result.lastInsertRowid);
-  console.error(`[direction] Generated direction #${id} (angle: ${angle}, ${suggestions.length} suggestions, ${inputTokens}in/${outputTokens}out tokens)`);
+  console.error(`[direction] Generated direction #${id} (angle: ${angle}, model: ${model}, ${suggestions.length} suggestions, ${inputTokens}in/${outputTokens}out tokens)`);
   return id;
 }

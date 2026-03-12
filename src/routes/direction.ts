@@ -48,14 +48,33 @@ directionRouter.get("/dailydirection", (req, res) => {
     }
   }
 
-  const tokenAvg = db.prepare(
-    `SELECT AVG(input_tokens) as avgIn, AVG(output_tokens) as avgOut, COUNT(*) as n
-     FROM daily_directions WHERE input_tokens IS NOT NULL AND created_at > datetime('now', '-30 days')`
-  ).get() as { avgIn: number | null; avgOut: number | null; n: number } | undefined;
+  // Per-million-token pricing for models we use
+  const MODEL_PRICING: Record<string, { input: number; output: number }> = {
+    "claude-sonnet-4-6": { input: 3.0, output: 15.0 },
+    "claude-haiku-4-5-20251001": { input: 0.80, output: 4.0 },
+  };
 
-  const avgTokens: TokenAvg | null = tokenAvg?.avgIn != null
-    ? { avgIn: Math.round(tokenAvg.avgIn), avgOut: Math.round(tokenAvg.avgOut ?? 0), n: tokenAvg.n }
-    : null;
+  const recentRows = db.prepare(
+    `SELECT input_tokens, output_tokens, model_used FROM daily_directions
+     WHERE input_tokens IS NOT NULL AND created_at > datetime('now', '-30 days')`
+  ).all() as { input_tokens: number; output_tokens: number; model_used: string | null }[];
+
+  let avgTokens: TokenAvg | null = null;
+  if (recentRows.length > 0) {
+    let totalIn = 0, totalOut = 0, totalCostUsd = 0;
+    for (const row of recentRows) {
+      totalIn += row.input_tokens;
+      totalOut += row.output_tokens;
+      const pricing = MODEL_PRICING[row.model_used ?? ""] ?? MODEL_PRICING["claude-sonnet-4-6"];
+      totalCostUsd += (row.input_tokens * pricing.input + row.output_tokens * pricing.output) / 1_000_000;
+    }
+    avgTokens = {
+      avgIn: Math.round(totalIn / recentRows.length),
+      avgOut: Math.round(totalOut / recentRows.length),
+      avgCostUsd: totalCostUsd / recentRows.length,
+      n: recentRows.length,
+    };
+  }
 
   const historyHtml = renderHistorySection(pastDirections, feedbackByDirection);
   res.type("html").send(renderDirectionPage(direction ?? null, feedbackMap, historyHtml, notice, dirPausedUntil, avgTokens));
@@ -86,9 +105,12 @@ directionRouter.post("/dailydirection/feedback", express.json(), (req, res) => {
   res.json({ ok: true });
 });
 
-directionRouter.post("/dailydirection/refresh", (_req, res) => {
-  console.error("[direction] Manual refresh triggered");
-  generateDailyDirection().catch(err => console.error("[direction] Refresh error:", err));
+directionRouter.post("/dailydirection/refresh", express.urlencoded({ extended: false }), (req, res) => {
+  const ALLOWED_MODELS = ["claude-sonnet-4-6", "claude-haiku-4-5-20251001"];
+  const requestedModel = req.body?.model as string | undefined;
+  const model = ALLOWED_MODELS.includes(requestedModel ?? "") ? requestedModel : undefined;
+  console.error(`[direction] Manual refresh triggered (model: ${model ?? "default"})`);
+  generateDailyDirection(model).catch(err => console.error("[direction] Refresh error:", err));
   res.redirect("/dailydirection?status=generating");
 });
 

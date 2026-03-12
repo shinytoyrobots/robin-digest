@@ -2,7 +2,7 @@ import { esc, getTodayIso, renderSourceRefs, SHARED_CSS, FONT_LINK } from "./sha
 import type { Suggestion } from "../direction/generator.js";
 
 export type DirectionRow = { id: number; focus_angle: string; suggestions: string; created_at: string };
-export type TokenAvg = { avgIn: number; avgOut: number; n: number };
+export type TokenAvg = { avgIn: number; avgOut: number; avgCostUsd: number; n: number };
 
 const PAGE_CSS = `${SHARED_CSS}
 .date{color:#525252;font-size:.875rem;margin-top:0;margin-bottom:1rem}
@@ -26,7 +26,9 @@ h3.card-title{font-size:.875rem}
 .engage-link{margin-top:.5rem}
 .engage-link a{color:#e11d48;font-weight:500;text-decoration:none;font-size:.875rem}
 .engage-link a:hover{text-decoration:underline}
-.history{margin-top:2rem;border-top:1px solid #e0e0e0;padding-top:1rem}`;
+.history{margin-top:2rem;border-top:1px solid #e0e0e0;padding-top:1rem}
+.model-select{border:1px solid #8d8d8d;border-radius:0;padding:4px 8px;font-size:.75rem;font-family:'IBM Plex Sans',sans-serif;background:#fff;cursor:pointer}
+.model-select:focus{outline:2px solid #0f62fe;outline-offset:-2px}`;
 
 const CATEGORY_COLORS: Record<string, string> = {
   writing: "#6366f1",
@@ -179,13 +181,19 @@ ${FONT_LINK}
 <p class="date">${esc(today)}</p>
 ${notice === "generating" ? `<div class="notice">New direction generating — refresh in a moment.</div>` : ""}
 <div class="toolbar">
-  <form method="POST" action="/dailydirection/refresh" style="margin:0"><button type="submit" class="btn-action">&#8635; Regenerate</button></form>
+  <form method="POST" action="/dailydirection/refresh" style="margin:0;display:flex;gap:6px;align-items:center">
+    <select name="model" class="model-select">
+      <option value="claude-sonnet-4-6">Sonnet</option>
+      <option value="claude-haiku-4-5-20251001">Haiku</option>
+    </select>
+    <button type="submit" class="btn-action">&#8635; Regenerate</button>
+  </form>
   <div class="pause-ctrl">${pauseCtrl}</div>
 </div>
 ${suggestionsHtml}
 ${engageHtml}
 ${historyHtml}
-<div class="footer">${generatedAt ? `Generated at ${generatedAt}` : "Daily Direction"} &middot; <a href="/">robin-cannon.dev</a>${avgTokens ? ` &middot; avg tokens: ${avgTokens.avgIn.toLocaleString()} in / ${avgTokens.avgOut.toLocaleString()} out (${avgTokens.n} runs)` : ""}</div>
+<div class="footer">${generatedAt ? `Generated at ${generatedAt}` : "Daily Direction"} &middot; <a href="/">robin-cannon.dev</a>${avgTokens ? ` &middot; avg ~$${avgTokens.avgCostUsd.toFixed(4)}/run &middot; ${avgTokens.avgIn.toLocaleString()} in / ${avgTokens.avgOut.toLocaleString()} out tokens (${avgTokens.n} runs, 30d)` : ""}</div>
 <script>
 if (window.location.search.includes('status=generating')) {
   history.replaceState(null, '', window.location.pathname);

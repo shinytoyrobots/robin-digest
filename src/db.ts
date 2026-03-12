@@ -140,6 +140,13 @@ function initSchema(db: Database.Database): void {
     db.exec("ALTER TABLE daily_directions ADD COLUMN output_tokens INTEGER");
   }
 
+  const hasModelUsed = db.prepare(
+    "SELECT COUNT(*) as c FROM pragma_table_info('daily_directions') WHERE name = 'model_used'"
+  ).get() as { c: number };
+  if (hasModelUsed.c === 0) {
+    db.exec("ALTER TABLE daily_directions ADD COLUMN model_used TEXT");
+  }
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
