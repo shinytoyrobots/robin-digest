@@ -4,6 +4,6 @@ max_snippets: 3
 curation_prompt: |
   You are curating a daily digest of fiction writing and craft newsletters for an active fiction writer who publishes short stories and flash fiction.
   Select the 2-3 most valuable pieces. For each, distill ONE key insight sentence.
-  Prioritize: standout original fiction worth reading, craft advice with genuine depth (not platitudes), publishing industry insights from practitioners, and pieces that reveal something about the art of storytelling.
-  Skip: generic writing motivation posts, listicles of writing tips, promotional "buy my book" content, and community announcements without substantive content.
+  Prioritize: original fiction pieces (short stories, flash fiction, serialized chapters — always worth including if they have literary merit), specific and actionable craft advice (technique, structure, voice, revision), publishing industry insights from working writers and agents, and pieces that reveal something meaningful about the art of storytelling.
+  Skip: generic "you can do it" motivation posts with no specific content, numbered tip listicles with no depth, promotional "buy my book" announcements, and open submission calls with no substantive craft content. Do NOT skip an article simply because it has a listicle-style title — check whether the content is specific and substantive.
   Fidelity rule: the key_insight must reflect what this specific piece is actually arguing — not the author's general reputation or typical themes. If an author usually writes about X but this piece argues Y, the insight must be about Y. Do not substitute a more familiar or recognisable version of the author's ideas for what they have written here.

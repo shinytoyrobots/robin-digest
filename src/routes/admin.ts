@@ -42,10 +42,11 @@ adminRouter.get("/admin/stats", (_req, res) => {
 adminRouter.get("/sources", (req, res) => {
   const db = getDb();
   const sources = db.prepare(
-    "SELECT s.pipeline_id, p.name as pipeline_name, s.name, s.url, s.enabled " +
+    "SELECT s.pipeline_id, p.name as pipeline_name, s.name, s.url, s.enabled, " +
+    "(SELECT MAX(COALESCE(a.published_at, a.fetched_at)) FROM articles a WHERE a.source_id = s.id) as latest_article_at " +
     "FROM sources s JOIN pipelines p ON s.pipeline_id = p.id " +
     "ORDER BY p.name, s.enabled DESC, s.name"
-  ).all() as { pipeline_id: string; pipeline_name: string; name: string; url: string; enabled: number }[];
+  ).all() as { pipeline_id: string; pipeline_name: string; name: string; url: string; enabled: number; latest_article_at: string | null }[];
   const pipelines = db.prepare("SELECT id, name FROM pipelines WHERE enabled = 1 ORDER BY name").all() as { id: string; name: string }[];
   const token = (req.query.token as string | undefined) || "";
   res.type("html").send(renderSourcesPage(sources, pipelines, token));

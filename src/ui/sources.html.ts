@@ -1,6 +1,6 @@
 import { esc, SHARED_CSS, FONT_LINK } from "./shared.js";
 
-type SourceRow = { pipeline_id: string; pipeline_name: string; name: string; url: string; enabled: number };
+type SourceRow = { pipeline_id: string; pipeline_name: string; name: string; url: string; enabled: number; latest_article_at: string | null };
 type PipelineInfo = { id: string; name: string };
 
 const SOURCE_LIMIT = 20;
@@ -17,6 +17,7 @@ const PAGE_CSS = `${SHARED_CSS}
 .source-table a:hover{text-decoration:underline}
 .disabled{opacity:.45}
 .disabled-tag{display:inline-block;background:#e0e0e0;color:#525252;font-size:.6875rem;padding:1px 5px;border-radius:2px;font-family:'IBM Plex Mono',monospace;margin-left:6px;vertical-align:middle}
+.stale-tag{display:inline-block;background:#fff1f1;color:#da1e28;font-size:.6875rem;padding:1px 5px;border-radius:2px;font-family:'IBM Plex Mono',monospace;margin-left:6px;vertical-align:middle;border:1px solid #ffd7d9}
 .count{color:#6f6f6f;font-size:.8125rem;font-weight:400;margin-left:6px}
 .count-warn{color:#d4a017;font-size:.8125rem;font-weight:600;margin-left:6px}
 .count-full{color:#da1e28;font-size:.8125rem;font-weight:600;margin-left:6px}
@@ -59,12 +60,15 @@ export function renderSourcesPage(sources: SourceRow[], pipelines: PipelineInfo[
     body += `<section class="pipeline-section">`;
     body += `<h2 class="section-heading">${esc(pipeline.name)} <span class="${countClass}">${total} / ${SOURCE_LIMIT} · ${enabled} active</span></h2>`;
     body += `<table class="source-table"><thead><tr><th>Name</th><th>URL</th><th></th></tr></thead><tbody>`;
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     for (const s of pipeline.sources) {
+      const isStale = !s.latest_article_at || s.latest_article_at < thirtyDaysAgo;
       const disabledTag = s.enabled ? "" : `<span class="disabled-tag">disabled</span>`;
+      const staleTag = isStale ? `<span class="stale-tag" title="${s.latest_article_at ? `Last article: ${s.latest_article_at.slice(0, 10)}` : "No articles fetched"}">stale</span>` : "";
       body += `<tr class="${s.enabled ? "" : "disabled"}">`;
-      body += `<td>${esc(s.name)}${disabledTag}</td>`;
+      body += `<td>${esc(s.name)}${disabledTag}${staleTag}</td>`;
       body += `<td><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.url)}</a></td>`;
-      body += `<td><button class="btn-del" onclick="deleteSource(${JSON.stringify(pid)},${JSON.stringify(s.url)},${JSON.stringify(s.name)})">Delete</button></td>`;
+      body += `<td><button class="btn-del" onclick="deleteSource(${esc(JSON.stringify(pid))},${esc(JSON.stringify(s.url))},${esc(JSON.stringify(s.name))})">Delete</button></td>`;
       body += `</tr>`;
     }
     body += `</tbody></table></section>`;
