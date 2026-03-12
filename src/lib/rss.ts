@@ -20,7 +20,7 @@ function parseRss(xml: string): FetchedArticle[] {
     const link = extractTag(item, "link");
     const author = extractTag(item, "dc:creator") || extractTag(item, "author");
     const pubDate = extractTag(item, "pubDate");
-    const description = extractTag(item, "description") || extractTag(item, "content:encoded") || "";
+    const description = extractTag(item, "content:encoded") || extractTag(item, "description") || "";
 
     if (!link) continue;
     const resolvedTitle = title || titleFromUrl(link);
