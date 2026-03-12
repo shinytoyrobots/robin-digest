@@ -23,6 +23,7 @@ export const config = {
   robinMcpToken: process.env.ROBIN_MCP_TOKEN || "",
   directionCron: process.env.DIRECTION_CRON || "30 3 * * *",
   githubToken: process.env.GITHUB_TOKEN || "",
+  directionModel: process.env.DIRECTION_MODEL || "claude-sonnet-4-6",
 };
 
 export function loadPipelineConfigs(): PipelineConfig[] {

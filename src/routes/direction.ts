@@ -2,7 +2,7 @@ import express from "express";
 import { getDb, getSetting } from "../db.js";
 import { generateDailyDirection } from "../direction/generator.js";
 import { createPauseRouter } from "../ui/shared.js";
-import { renderDirectionPage, renderHistorySection, type DirectionRow } from "../ui/direction.html.js";
+import { renderDirectionPage, renderHistorySection, type DirectionRow, type TokenAvg } from "../ui/direction.html.js";
 
 export const directionRouter = express.Router();
 
@@ -48,8 +48,17 @@ directionRouter.get("/dailydirection", (req, res) => {
     }
   }
 
+  const tokenAvg = db.prepare(
+    `SELECT AVG(input_tokens) as avgIn, AVG(output_tokens) as avgOut, COUNT(*) as n
+     FROM daily_directions WHERE input_tokens IS NOT NULL AND created_at > datetime('now', '-30 days')`
+  ).get() as { avgIn: number | null; avgOut: number | null; n: number } | undefined;
+
+  const avgTokens: TokenAvg | null = tokenAvg?.avgIn != null
+    ? { avgIn: Math.round(tokenAvg.avgIn), avgOut: Math.round(tokenAvg.avgOut ?? 0), n: tokenAvg.n }
+    : null;
+
   const historyHtml = renderHistorySection(pastDirections, feedbackByDirection);
-  res.type("html").send(renderDirectionPage(direction ?? null, feedbackMap, historyHtml, notice, dirPausedUntil));
+  res.type("html").send(renderDirectionPage(direction ?? null, feedbackMap, historyHtml, notice, dirPausedUntil, avgTokens));
 });
 
 directionRouter.get("/dailydirection/latest-timestamp", (_req, res) => {

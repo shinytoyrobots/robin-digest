@@ -13,12 +13,19 @@ function getClient(): Anthropic {
 export interface GenerateOptions {
   temperature?: number;
   maxTokens?: number;
+  model?: string;
 }
 
-export async function generateText(prompt: string, systemPrompt?: string, options?: GenerateOptions): Promise<string> {
+export interface GenerateResult {
+  text: string;
+  inputTokens: number;
+  outputTokens: number;
+}
+
+async function callClaude(prompt: string, systemPrompt?: string, options?: GenerateOptions): Promise<GenerateResult> {
   const anthropic = getClient();
   const response = await anthropic.messages.create({
-    model: config.claudeModel,
+    model: options?.model ?? config.claudeModel,
     max_tokens: options?.maxTokens ?? 2048,
     system: systemPrompt || "",
     messages: [{ role: "user", content: prompt }],
@@ -26,5 +33,18 @@ export async function generateText(prompt: string, systemPrompt?: string, option
   });
 
   const textBlock = response.content.find((b) => b.type === "text");
-  return textBlock?.text || "";
+  return {
+    text: textBlock?.text || "",
+    inputTokens: response.usage.input_tokens,
+    outputTokens: response.usage.output_tokens,
+  };
+}
+
+export async function generateText(prompt: string, systemPrompt?: string, options?: GenerateOptions): Promise<string> {
+  const result = await callClaude(prompt, systemPrompt, options);
+  return result.text;
+}
+
+export async function generateTextWithUsage(prompt: string, systemPrompt?: string, options?: GenerateOptions): Promise<GenerateResult> {
+  return callClaude(prompt, systemPrompt, options);
 }

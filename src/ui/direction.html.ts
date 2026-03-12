@@ -2,6 +2,7 @@ import { esc, getTodayIso, renderSourceRefs, SHARED_CSS, FONT_LINK } from "./sha
 import type { Suggestion } from "../direction/generator.js";
 
 export type DirectionRow = { id: number; focus_angle: string; suggestions: string; created_at: string };
+export type TokenAvg = { avgIn: number; avgOut: number; n: number };
 
 const PAGE_CSS = `${SHARED_CSS}
 .date{color:#525252;font-size:.875rem;margin-top:0;margin-bottom:1rem}
@@ -80,7 +81,8 @@ export function renderDirectionPage(
   feedbackMap: Map<number, string>,
   historyHtml: string,
   notice?: string,
-  dirPausedUntil?: string | null
+  dirPausedUntil?: string | null,
+  avgTokens?: TokenAvg | null
 ): string {
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long", month: "long", day: "numeric", year: "numeric",
@@ -183,7 +185,7 @@ ${notice === "generating" ? `<div class="notice">New direction generating — re
 ${suggestionsHtml}
 ${engageHtml}
 ${historyHtml}
-<div class="footer">${generatedAt ? `Generated at ${generatedAt}` : "Daily Direction"} &middot; <a href="/">robin-cannon.dev</a></div>
+<div class="footer">${generatedAt ? `Generated at ${generatedAt}` : "Daily Direction"} &middot; <a href="/">robin-cannon.dev</a>${avgTokens ? ` &middot; avg tokens: ${avgTokens.avgIn.toLocaleString()} in / ${avgTokens.avgOut.toLocaleString()} out (${avgTokens.n} runs)` : ""}</div>
 <script>
 if (window.location.search.includes('status=generating')) {
   history.replaceState(null, '', window.location.pathname);

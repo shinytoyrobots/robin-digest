@@ -132,6 +132,14 @@ function initSchema(db: Database.Database): void {
     db.exec("ALTER TABLE snippets ADD COLUMN is_fresh INTEGER NOT NULL DEFAULT 1");
   }
 
+  const hasInputTokens = db.prepare(
+    "SELECT COUNT(*) as c FROM pragma_table_info('daily_directions') WHERE name = 'input_tokens'"
+  ).get() as { c: number };
+  if (hasInputTokens.c === 0) {
+    db.exec("ALTER TABLE daily_directions ADD COLUMN input_tokens INTEGER");
+    db.exec("ALTER TABLE daily_directions ADD COLUMN output_tokens INTEGER");
+  }
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,

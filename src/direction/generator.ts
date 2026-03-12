@@ -1,5 +1,6 @@
 import { getDb } from "../db.js";
-import { generateText } from "../lib/claude.js";
+import { generateTextWithUsage } from "../lib/claude.js";
+import { config } from "../config.js";
 import { gatherContext } from "./gatherer.js";
 import { pickRandomAngle, buildPrompt } from "./prompts.js";
 
@@ -31,9 +32,16 @@ export async function generateDailyDirection(): Promise<number> {
   const angle = pickRandomAngle();
   const { system, user } = buildPrompt(context, angle);
 
+  const callOptions = { temperature: 0.9, model: config.directionModel };
+  let inputTokens = 0;
+  let outputTokens = 0;
+
   let raw: string;
   try {
-    raw = await generateText(user, system, { temperature: 0.9 });
+    const result = await generateTextWithUsage(user, system, callOptions);
+    raw = result.text;
+    inputTokens = result.inputTokens;
+    outputTokens = result.outputTokens;
   } catch (err) {
     console.error("[direction] Claude API error:", err);
     throw err;
@@ -46,7 +54,10 @@ export async function generateDailyDirection(): Promise<number> {
     // Retry once on parse failure
     console.error("[direction] Parse failed, retrying...");
     try {
-      raw = await generateText(user, system, { temperature: 0.9 });
+      const result = await generateTextWithUsage(user, system, callOptions);
+      raw = result.text;
+      inputTokens = result.inputTokens;
+      outputTokens = result.outputTokens;
       suggestions = parseResponse(raw);
     } catch {
       // Store raw text as a single fallback suggestion
@@ -67,11 +78,11 @@ export async function generateDailyDirection(): Promise<number> {
   const db = getDb();
   const result = db
     .prepare(
-      "INSERT INTO daily_directions (focus_angle, suggestions, context_summary) VALUES (?, ?, ?)"
+      "INSERT INTO daily_directions (focus_angle, suggestions, context_summary, input_tokens, output_tokens) VALUES (?, ?, ?, ?, ?)"
     )
-    .run(angle, JSON.stringify(suggestions), contextSummary || null);
+    .run(angle, JSON.stringify(suggestions), contextSummary || null, inputTokens || null, outputTokens || null);
 
   const id = Number(result.lastInsertRowid);
-  console.error(`[direction] Generated direction #${id} (angle: ${angle}, ${suggestions.length} suggestions)`);
+  console.error(`[direction] Generated direction #${id} (angle: ${angle}, ${suggestions.length} suggestions, ${inputTokens}in/${outputTokens}out tokens)`);
   return id;
 }
