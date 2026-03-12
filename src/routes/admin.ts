@@ -305,6 +305,13 @@ adminRouter.post("/admin/run-pipeline", express.json(), (req, res) => {
   }
 });
 
+adminRouter.post("/admin/clear-writing-cache", (_req, res) => {
+  const db = getDb();
+  const result = db.prepare("DELETE FROM writing_cache").run();
+  console.error(`[admin] Writing cache cleared (${result.changes} entries)`);
+  res.json({ cleared: result.changes });
+});
+
 adminRouter.post("/admin/run-stale-cleanup", (_req, res) => {
   try {
     const deleted = autoDeleteStaleSources();
