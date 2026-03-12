@@ -16,7 +16,7 @@ const ANGLE_DESCRIPTIONS: Record<FocusAngle, string> = {
   "learning": "New skills, articles to read deeply, concepts to explore, technical rabbit holes worth going down.",
   "project-momentum": "Pick a specific project and suggest a concrete next step to move it forward today.",
   "unexpected-connection": "Find a surprising link between two unrelated things Robin has been working on or reading about.",
-  "reflection": "Revisit something older — a past writing, a bookmarked article, a shelved idea — with fresh eyes.",
+  "reflection": "Revisit something older — a past writing, a shelved idea — but through the lens of something recently read. What does the new material illuminate about the old work, or vice versa?",
   "outreach": "Share something, connect with someone, publish a draft, contribute to a conversation.",
 };
 
@@ -37,6 +37,7 @@ Key principles:
 - Reference SOURCES. Note which context data informed each suggestion.
 - For source_refs: IMPORTANT — external sources (digest snippets, blog posts, articles) MUST use the format "description|URL" (e.g. "Article Title|https://example.com/article") so they render as clickable links. Robin's own writings/notes should be plain text with no URL. The URL is available in the context data — always include it.
 - SUMMARISE BEFORE CONNECTING. Before proposing any connection between an external source and Robin's work or frameworks, internally ask: what is this source actually arguing (in one sentence)? What is Robin's work actually arguing (in one sentence)? Only propose the connection if those two summaries share substance — not just vocabulary. Discard matches that rely on shared words with different meanings.
+- CONNECT OUTWARD. Regular suggestions (non-engage) should almost always ground themselves in the intersection of Robin's own work and at least one external source from the digest. Pure self-reflection with no external anchor ("revisit this piece", "continue this project") is less valuable than the same idea sparked by something Robin has been reading. The goal is intellectual cross-pollination, not introspection. The engage suggestions handle direct outreach — regular suggestions should handle the quieter work of letting external ideas fertilise Robin's own.
 
 Today's focus lens: "${angle}" — ${ANGLE_DESCRIPTIONS[angle]}
 
