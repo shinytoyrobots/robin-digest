@@ -81,7 +81,7 @@ directionRouter.get("/dailydirection", (req, res) => {
   let song: StoredSong | null = null;
   if (direction) {
     song = db.prepare(
-      "SELECT * FROM direction_songs WHERE direction_id = ? LIMIT 1"
+      "SELECT * FROM direction_songs WHERE direction_id = ? ORDER BY created_at DESC LIMIT 1"
     ).get(direction.id) as StoredSong | null ?? null;
   }
 
