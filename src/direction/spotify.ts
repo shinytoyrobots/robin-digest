@@ -59,7 +59,9 @@ interface SearchResult {
 async function spotifySearch(query: string): Promise<SpotifyTrack[]> {
   const token = await getAccessToken();
   const q = encodeURIComponent(query);
-  const res = await fetch(`https://api.spotify.com/v1/search?q=${q}&type=track&limit=20`, {
+  const url = `https://api.spotify.com/v1/search?q=${q}&type=track&limit=10`;
+  console.error(`[spotify] GET ${url}`);
+  const res = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
   });
 
