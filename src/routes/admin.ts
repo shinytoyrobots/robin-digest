@@ -2,6 +2,7 @@ import express from "express";
 import { getDb } from "../db.js";
 import { runPipeline, runAllPipelines } from "../pipeline/runner.js";
 import { generateDailyDirection } from "../direction/generator.js";
+import { generateSongRecommendation } from "../direction/spotify.js";
 import { renderSourcesPage } from "../ui/sources.html.js";
 import { discoverFeedForUrl } from "../pipeline/feed-finder.js";
 import { parseFeed } from "../lib/rss.js";
@@ -331,4 +332,30 @@ adminRouter.post("/admin/run-direction", express.json(), (_req, res) => {
   }).catch(err => {
     console.error("[admin] Direction generation error:", err);
   });
+});
+
+adminRouter.post("/admin/run-song", express.json(), async (req, res) => {
+  const db = getDb();
+  const directionId = req.body?.direction_id as number | undefined;
+
+  const id = directionId
+    ?? (db.prepare("SELECT id FROM daily_directions ORDER BY created_at DESC LIMIT 1").get() as { id: number } | undefined)?.id;
+
+  if (!id) {
+    res.status(404).json({ error: "No directions found" });
+    return;
+  }
+
+  console.error(`[admin] Manual song generation for direction #${id}`);
+  try {
+    const song = await generateSongRecommendation(id);
+    if (song) {
+      res.json({ status: "ok", song });
+    } else {
+      res.json({ status: "no_song", message: "No suitable recent track found after 3 attempts" });
+    }
+  } catch (err) {
+    console.error("[admin] Song generation error:", err);
+    res.status(500).json({ error: String(err) });
+  }
 });
