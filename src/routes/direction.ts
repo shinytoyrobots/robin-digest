@@ -124,18 +124,6 @@ directionRouter.post("/dailydirection/feedback", express.json(), (req, res) => {
   res.json({ ok: true });
 });
 
-directionRouter.post("/dailydirection/song-feedback", express.json(), (req, res) => {
-  const { song_id, reaction } = req.body as { song_id: number; reaction: string };
-
-  if (!song_id || !["good_choice", "didnt_resonate"].includes(reaction)) {
-    res.status(400).json({ error: "Invalid song feedback" });
-    return;
-  }
-
-  const db = getDb();
-  db.prepare("UPDATE direction_songs SET reaction = ? WHERE id = ?").run(reaction, song_id);
-  res.json({ ok: true });
-});
 
 directionRouter.post("/dailydirection/refresh", express.urlencoded({ extended: false }), (req, res) => {
   const ALLOWED_MODELS = ["claude-sonnet-4-6", "claude-haiku-4-5-20251001"];

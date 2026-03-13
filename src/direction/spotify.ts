@@ -148,24 +148,12 @@ function getPastSongTitles(): string[] {
   return rows.map((r) => `${r.title} by ${r.artist}`);
 }
 
-function getRecentSongFeedback(): { title: string; artist: string; reaction: string }[] {
-  const db = getDb();
-  return db
-    .prepare(
-      `SELECT title, artist, reaction FROM direction_songs
-       WHERE reaction IS NOT NULL AND created_at > datetime('now', '-30 days')
-       ORDER BY created_at DESC LIMIT 20`
-    )
-    .all() as { title: string; artist: string; reaction: string }[];
-}
-
 // --- Prompt ---
 
 function buildSongPrompt(
   suggestions: Suggestion[],
   releases: MBRelease[],
-  pastSongs: string[],
-  feedback: { title: string; artist: string; reaction: string }[]
+  pastSongs: string[]
 ): string {
   // Shuffle and sample releases to keep prompt manageable
   const shuffled = releases.sort(() => Math.random() - 0.5);
@@ -186,16 +174,14 @@ ${sample.map((r, i) => `${i + 1}. ${formatMBRelease(r)}`).join("\n")}
     prompt += `\n## Do NOT pick any of these previously recommended songs:\n${pastSongs.map((s) => `- ${s}`).join("\n")}\n`;
   }
 
-  if (feedback.length > 0) {
-    prompt += `\n## Past song feedback (learn from this):\n`;
-    for (const f of feedback) {
-      prompt += `- "${f.title}" by ${f.artist} → ${f.reaction === "good_choice" ? "liked" : "didn't resonate"}\n`;
-    }
-    prompt += `Lean toward styles/genres/moods that were liked, away from those disliked.\n`;
-  }
+  prompt += `\n## How to pick:
+- Favor the TITLE's connotation and mood over the artist's reputation. A title that evokes the right feeling matters more than a famous name.
+- Prefer artists you know LESS about — obscure and unfamiliar is a feature, not a bug. This is about discovery.
+- Look for emotional resonance, surprising conceptual parallels, or evocative mood — NOT literal keyword matches between song titles and direction content.
+- Be surprising. The best pick is one Robin wouldn't find on his own.
 
-  prompt += `\nPick the release with the strongest connection. Respond with ONLY a JSON object (no markdown, no explanation):
-{"title": "Exact Title From List", "artist": "Exact Artist From List", "reason": "One sentence explaining the thematic connection to today's direction"}`;
+Respond with ONLY a JSON object (no markdown, no explanation):
+{"title": "Exact Title From List", "artist": "Exact Artist From List", "reason": "One sentence explaining the connection to today's direction"}`;
 
   return prompt;
 }
@@ -262,7 +248,7 @@ export async function generateSongRecommendation(directionId: number, attemptLog
 
   const pastTrackIds = getPastTrackIds();
   const pastSongs = getPastSongTitles();
-  const feedback = getRecentSongFeedback();
+
 
   // Step 2: Ask Claude to pick from the real releases
   const MAX_ATTEMPTS = 2;
@@ -271,7 +257,7 @@ export async function generateSongRecommendation(directionId: number, attemptLog
     const log: AttemptLog = { releases_fetched: releases.length, spotify_found: false };
 
     try {
-      const prompt = buildSongPrompt(suggestions, releases, pastSongs, feedback);
+      const prompt = buildSongPrompt(suggestions, releases, pastSongs);
       const model = "claude-sonnet-4-6";
       const result = await generateTextWithUsage(prompt, undefined, {
         model,
