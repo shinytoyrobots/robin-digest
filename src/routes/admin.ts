@@ -2,7 +2,7 @@ import express from "express";
 import { getDb } from "../db.js";
 import { runPipeline, runAllPipelines } from "../pipeline/runner.js";
 import { generateDailyDirection } from "../direction/generator.js";
-import { generateSongRecommendation } from "../direction/spotify.js";
+import { generateSongRecommendation, type AttemptLog } from "../direction/spotify.js";
 import { renderSourcesPage } from "../ui/sources.html.js";
 import { discoverFeedForUrl } from "../pipeline/feed-finder.js";
 import { parseFeed } from "../lib/rss.js";
@@ -348,11 +348,12 @@ adminRouter.post("/admin/run-song", express.json(), async (req, res) => {
 
   console.error(`[admin] Manual song generation for direction #${id}`);
   try {
-    const song = await generateSongRecommendation(id);
+    const attempts: AttemptLog[] = [];
+    const song = await generateSongRecommendation(id, attempts);
     if (song) {
-      res.json({ status: "ok", song });
+      res.json({ status: "ok", song, attempts });
     } else {
-      res.json({ status: "no_song", message: "No suitable recent track found after 3 attempts" });
+      res.json({ status: "no_song", message: "No suitable recent track found after 3 attempts", attempts });
     }
   } catch (err) {
     console.error("[admin] Song generation error:", err);

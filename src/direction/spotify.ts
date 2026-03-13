@@ -202,7 +202,17 @@ export interface StoredSong {
   created_at: string;
 }
 
-export async function generateSongRecommendation(directionId: number): Promise<StoredSong | null> {
+export interface AttemptLog {
+  attempt: number;
+  artist: string;
+  title: string;
+  tracks_found: number;
+  recent_tracks: number;
+  sample_dates: string[];
+  error?: string;
+}
+
+export async function generateSongRecommendation(directionId: number, attemptLogs?: AttemptLog[]): Promise<StoredSong | null> {
   if (!config.spotifyClientId || !config.spotifyClientSecret) {
     console.error("[spotify] Missing credentials, skipping song recommendation");
     return null;
@@ -244,9 +254,22 @@ export async function generateSongRecommendation(directionId: number): Promise<S
 
       const tracks = await searchTrack(suggestion.title, suggestion.artist);
 
-      for (const track of tracks) {
-        if (pastTrackIds.has(track.id)) continue;
-        if (!isRecentRelease(track.album.release_date, track.album.release_date_precision)) continue;
+      const recentTracks = tracks.filter(
+        (t) => !pastTrackIds.has(t.id) && isRecentRelease(t.album.release_date, t.album.release_date_precision)
+      );
+
+      if (attemptLogs) {
+        attemptLogs.push({
+          attempt,
+          artist: suggestion.artist,
+          title: suggestion.title,
+          tracks_found: tracks.length,
+          recent_tracks: recentTracks.length,
+          sample_dates: tracks.slice(0, 5).map((t) => `${t.name} (${t.album.release_date})`),
+        });
+      }
+
+      for (const track of recentTracks) {
 
         // Found a valid recent track
         const albumArt = track.album.images.find((img) => img.width >= 200)?.url
