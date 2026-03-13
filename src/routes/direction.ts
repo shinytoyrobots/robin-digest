@@ -55,25 +55,35 @@ directionRouter.get("/dailydirection", (req, res) => {
     "claude-haiku-4-5-20251001": { input: 0.80, output: 4.0 },
   };
 
-  const recentRows = db.prepare(
+  // Combine direction + song token usage for cost calculation
+  const directionRows = db.prepare(
     `SELECT input_tokens, output_tokens, model_used FROM daily_directions
      WHERE input_tokens IS NOT NULL AND created_at > datetime('now', '-30 days')`
   ).all() as { input_tokens: number; output_tokens: number; model_used: string | null }[];
 
+  const songRows = db.prepare(
+    `SELECT input_tokens, output_tokens, model_used FROM direction_songs
+     WHERE input_tokens IS NOT NULL AND created_at > datetime('now', '-30 days')`
+  ).all() as { input_tokens: number; output_tokens: number; model_used: string | null }[];
+
+  const allRows = [...directionRows, ...songRows];
+
   let avgTokens: TokenAvg | null = null;
-  if (recentRows.length > 0) {
+  if (allRows.length > 0) {
     let totalIn = 0, totalOut = 0, totalCostUsd = 0;
-    for (const row of recentRows) {
+    for (const row of allRows) {
       totalIn += row.input_tokens;
       totalOut += row.output_tokens;
       const pricing = MODEL_PRICING[row.model_used ?? ""] ?? MODEL_PRICING["claude-sonnet-4-6"];
       totalCostUsd += (row.input_tokens * pricing.input + row.output_tokens * pricing.output) / 1_000_000;
     }
+    // Average per direction run (not per row — songs are part of a direction run)
+    const runCount = directionRows.length || 1;
     avgTokens = {
-      avgIn: Math.round(totalIn / recentRows.length),
-      avgOut: Math.round(totalOut / recentRows.length),
-      avgCostUsd: totalCostUsd / recentRows.length,
-      n: recentRows.length,
+      avgIn: Math.round(totalIn / runCount),
+      avgOut: Math.round(totalOut / runCount),
+      avgCostUsd: totalCostUsd / runCount,
+      n: runCount,
     };
   }
 

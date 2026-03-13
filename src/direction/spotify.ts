@@ -1,6 +1,6 @@
 import { config } from "../config.js";
 import { getDb } from "../db.js";
-import { generateText } from "../lib/claude.js";
+import { generateTextWithUsage } from "../lib/claude.js";
 import type { Suggestion } from "./generator.js";
 
 const MB_USER_AGENT = "RobinDigest/1.0.0 ( https://robin-cannon.dev ) robin@shinytoyrobots.com";
@@ -272,12 +272,13 @@ export async function generateSongRecommendation(directionId: number, attemptLog
 
     try {
       const prompt = buildSongPrompt(suggestions, releases, pastSongs, feedback);
-      const raw = await generateText(prompt, undefined, {
-        model: "claude-sonnet-4-6",
+      const model = "claude-sonnet-4-6";
+      const result = await generateTextWithUsage(prompt, undefined, {
+        model,
         temperature: 0.8,
       });
 
-      const cleaned = raw.replace(/```json?\s*/g, "").replace(/```/g, "").trim();
+      const cleaned = result.text.replace(/```json?\s*/g, "").replace(/```/g, "").trim();
       const pick = JSON.parse(cleaned) as { title: string; artist: string; reason: string };
       log.pick = pick;
 
@@ -314,10 +315,10 @@ export async function generateSongRecommendation(directionId: number, attemptLog
         ?? track.album.images[0]?.url
         ?? null;
 
-      const result = db
+      const dbResult = db
         .prepare(
-          `INSERT INTO direction_songs (direction_id, track_id, title, artist, album, release_date, spotify_url, album_art_url, reason)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          `INSERT INTO direction_songs (direction_id, track_id, title, artist, album, release_date, spotify_url, album_art_url, reason, input_tokens, output_tokens, model_used)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .run(
           directionId,
@@ -328,11 +329,14 @@ export async function generateSongRecommendation(directionId: number, attemptLog
           mbReleaseDate,
           track.uri,
           albumArt,
-          pick.reason
+          pick.reason,
+          result.inputTokens,
+          result.outputTokens,
+          model
         );
 
       const song: StoredSong = {
-        id: Number(result.lastInsertRowid),
+        id: Number(dbResult.lastInsertRowid),
         direction_id: directionId,
         track_id: track.id,
         title: track.name,

@@ -164,6 +164,15 @@ function initSchema(db: Database.Database): void {
     db.exec("ALTER TABLE daily_directions ADD COLUMN model_used TEXT");
   }
 
+  const hasSongTokens = db.prepare(
+    "SELECT COUNT(*) as c FROM pragma_table_info('direction_songs') WHERE name = 'input_tokens'"
+  ).get() as { c: number };
+  if (hasSongTokens.c === 0) {
+    db.exec("ALTER TABLE direction_songs ADD COLUMN input_tokens INTEGER");
+    db.exec("ALTER TABLE direction_songs ADD COLUMN output_tokens INTEGER");
+    db.exec("ALTER TABLE direction_songs ADD COLUMN model_used TEXT");
+  }
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
