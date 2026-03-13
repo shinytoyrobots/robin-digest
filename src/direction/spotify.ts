@@ -53,20 +53,42 @@ interface SearchResult {
   tracks: { items: SpotifyTrack[] };
 }
 
-async function searchTrack(title: string, artist: string): Promise<SpotifyTrack[]> {
+async function spotifySearch(query: string): Promise<SpotifyTrack[]> {
   const token = await getAccessToken();
-  const q = encodeURIComponent(`track:${title} artist:${artist}`);
-  const res = await fetch(`https://api.spotify.com/v1/search?q=${q}&type=track&limit=10`, {
+  const q = encodeURIComponent(query);
+  const res = await fetch(`https://api.spotify.com/v1/search?q=${q}&type=track&limit=20`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 
   if (!res.ok) {
-    console.error(`[spotify] Search failed: ${res.status}`);
+    console.error(`[spotify] Search failed: ${res.status} for query "${query}"`);
     return [];
   }
 
   const data = (await res.json()) as SearchResult;
   return data.tracks.items;
+}
+
+async function searchTrack(title: string, artist: string): Promise<SpotifyTrack[]> {
+  const year = new Date().getFullYear();
+
+  // Try exact match with year filter
+  const exact = await spotifySearch(`track:${title} artist:${artist} year:${year}`);
+  if (exact.length > 0) {
+    console.error(`[spotify] Found ${exact.length} results for exact match + year:${year}`);
+    return exact;
+  }
+
+  // Try without year filter
+  const noYear = await spotifySearch(`track:${title} artist:${artist}`);
+  if (noYear.length > 0) {
+    console.error(`[spotify] Found ${noYear.length} results for exact match (no year filter)`);
+    return noYear;
+  }
+
+  // Try artist-only with year filter — pick up ANY recent track by this artist
+  console.error(`[spotify] No exact match, trying artist-only: "${artist}" year:${year}`);
+  return spotifySearch(`artist:${artist} year:${year}`);
 }
 
 function isRecentRelease(releaseDate: string, precision: string): boolean {
@@ -119,10 +141,13 @@ function buildSongPrompt(suggestions: Suggestion[], pastSongs: string[], feedbac
 
   let prompt = `You are recommending a NEW music release for Robin Cannon based on today's daily direction content. Today is ${todayStr}.
 
-Robin wants to discover new music. You must suggest a song that:
-1. Was released THIS WEEK or in the last few days — a brand new single, a track from an album that just dropped, a fresh release. Think "new music Friday" territory. Do NOT suggest older catalog tracks, classics, or songs from more than a couple of weeks ago.
-2. Has a genuine thematic, emotional, or conceptual connection to today's direction content — not a surface-level keyword match
-3. Is available on Spotify
+CRITICAL: You must suggest a song released in ${new Date().getFullYear()}. Your training data is not current — you do NOT know what songs are out right now. Instead, suggest an artist who is ACTIVELY RELEASING MUSIC and name a plausible recent single or album track by them. Think of artists who release frequently: indie artists, electronic producers, hip-hop artists, singer-songwriters with active output. The system will verify via Spotify that the track exists and was released recently.
+
+Requirements:
+1. The artist must be someone who releases music regularly (not a legacy act with rare releases)
+2. Name a specific track title — your best guess at a recent single or album track by that artist
+3. The song should have a thematic, emotional, or conceptual connection to today's direction content
+4. Must be on Spotify
 
 Today's direction suggestions:
 ${suggestions.map((s) => `- "${s.title}": ${s.body}`).join("\n")}
