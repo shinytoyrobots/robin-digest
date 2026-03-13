@@ -25,10 +25,13 @@ async function getAccessToken(): Promise<string> {
   });
 
   if (!res.ok) {
-    throw new Error(`Spotify auth failed: ${res.status} ${await res.text()}`);
+    const errBody = await res.text();
+    console.error(`[spotify] Auth failed: ${res.status} — ${errBody}`);
+    throw new Error(`Spotify auth failed: ${res.status} ${errBody}`);
   }
 
   const data = (await res.json()) as { access_token: string; expires_in: number };
+  console.error(`[spotify] Auth OK, token expires in ${data.expires_in}s`);
   cachedToken = {
     access_token: data.access_token,
     expires_at: Date.now() + data.expires_in * 1000,
@@ -61,7 +64,8 @@ async function spotifySearch(query: string): Promise<SpotifyTrack[]> {
   });
 
   if (!res.ok) {
-    console.error(`[spotify] Search failed: ${res.status} for query "${query}"`);
+    const body = await res.text();
+    console.error(`[spotify] Search failed: ${res.status} for query "${query}" — ${body}`);
     return [];
   }
 
