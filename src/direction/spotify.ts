@@ -86,9 +86,9 @@ async function searchTrack(title: string, artist: string): Promise<SpotifyTrack[
     return noYear;
   }
 
-  // Try artist-only with year filter — pick up ANY recent track by this artist
-  console.error(`[spotify] No exact match, trying artist-only: "${artist}" year:${year}`);
-  return spotifySearch(`artist:${artist} year:${year}`);
+  // Try artist-only without year filter — let isRecentRelease filter in code
+  console.error(`[spotify] No exact match, trying artist-only: "${artist}"`);
+  return spotifySearch(`artist:${artist}`);
 }
 
 function isRecentRelease(releaseDate: string, precision: string): boolean {
