@@ -60,7 +60,6 @@ async function spotifySearch(query: string): Promise<SpotifyTrack[]> {
   const token = await getAccessToken();
   const q = encodeURIComponent(query);
   const url = `https://api.spotify.com/v1/search?q=${q}&type=track&limit=10`;
-  console.error(`[spotify] GET ${url}`);
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -93,7 +92,7 @@ async function searchTrack(title: string, artist: string): Promise<SpotifyTrack[
 
 function isRecentRelease(releaseDate: string, precision: string): boolean {
   const now = new Date();
-  const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const cutoff = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
 
   // Parse based on precision
   let date: Date;
