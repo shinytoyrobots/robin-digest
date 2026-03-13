@@ -32,14 +32,15 @@
 #### Backend
 - New route: `POST /admin/suggest-source`
   - Input: `{ url: string }`
-  - Fetches the URL (with existing fetch/timeout infrastructure), extracts title + text sample
-  - Calls Claude with a short prompt: given the pipeline descriptions and this content sample, which pipeline fits best and what should the source be named?
-  - Returns: `{ name, pipeline_id, rationale, url }`
+  - Runs feed discovery first (reusing existing `feed-finder.ts` logic) — if no feed is found, return a 400 error: "No RSS/Atom feed found. This URL cannot be added as a source."
+  - If feed is found: fetch the feed, extract the 3–5 most recent article titles + content snippets (up to 500 chars each)
+  - Calls Claude with those article samples to categorize the source
+  - Returns: `{ name, pipeline_id, rationale, url, feed_url }`
 - The suggest step is separate from the add step — user still confirms before anything is written to DB.
-- If fetch fails (e.g. paywalled, JS-rendered), return a fallback response allowing manual categorization.
+- Feed discovery failure = hard rejection. No fallback to homepage scraping.
 
 #### Claude prompt for categorization
-- Provide Claude with: the URL, the content sample, and a list of pipeline IDs + their one-line descriptions
+- Provide Claude with: the URL, feed article samples (titles + snippets), and a list of pipeline IDs + their one-line descriptions
 - Ask for: best-fit pipeline_id, suggested name (short, no "Blog" suffix unless meaningful), one sentence rationale
 - Use a low-temperature call (0.2) for consistent output
 - Parse as JSON: `{ pipeline_id, name, rationale }`
@@ -48,7 +49,7 @@
 
 - `/sources` page is currently auth-gated (via `authMiddleware` on `adminRouter`). Delete and add flows stay behind the same auth.
 - The add-source form enforces "one in, one out" at 20: if the chosen pipeline is already at 20, the UI blocks the add and requires the user to delete a source from that pipeline first before the new one can be confirmed. This is not a soft warning — the confirm button is disabled and the message explicitly states a source must be removed.
-- Feed discovery (finding the RSS URL) still happens automatically on the next pipeline run, as it does today. The add flow does not need to handle feed URLs — that's already solved.
+- Feed discovery happens during `POST /admin/suggest-source`. The `feed_url` returned is stored when the user confirms, so the source is immediately ready to fetch on the next pipeline run.
 - Consider adding `POST /admin/suggest-source` to the seed script documentation so it's clear this is an internal tool.
 
 ### 4. Flag rarely-updated sources (future, non-urgent)
@@ -63,3 +64,41 @@
 - `src/routes/admin.ts` — add `POST /admin/suggest-source`, enforce 20-source cap in seed-sources
 - `src/ui/sources.html.ts` — add delete buttons, add-source form, suggestion result UI, limit indicators
 - No DB schema changes needed
+
+---
+
+# Song of the Day — Implemented
+
+## How it works
+
+Daily direction cron job (3:30 AM CT) generates direction, then runs song recommendation:
+
+1. **MusicBrainz** — Fetches all official releases (singles, albums, EPs) from the last 14 days. Returns ~300 unbiased, unfiltered releases. 3 API calls (one per type), 1 req/sec rate limit respected.
+2. **Claude (Sonnet)** — Receives a random sample of 80 releases (title, artist, type, date) plus today's direction suggestions. Picks one based on title connotation and emotional/conceptual resonance. Prompt explicitly favors obscure artists and surprising picks over literal keyword matches or famous names.
+3. **Spotify** — Searches for the picked track and returns the Spotify URI (opens the app directly) and album art.
+4. **Stored** in `direction_songs` table with token usage for cost tracking.
+
+## Key design decisions
+
+- **Cron only** — Song recommendation does NOT run on manual direction regeneration. Only on the daily cron and via `POST /admin/run-song` for testing.
+- **No feedback** — Each day is independent. No thumbs up/down. Without genre data for the obscure artists being recommended, feedback has no meaningful signal for future picks.
+- **MusicBrainz for discovery** — Spotify search is popularity-biased. MusicBrainz catalogs everything equally, so obscure releases surface naturally.
+- **Release date from MusicBrainz** — Displays the actual single/EP release date, not the Spotify album date which may differ.
+- **Spotify URI** — Uses `spotify:track:xxx` URI which opens the Spotify app when installed, rather than the web player.
+- **Token cost included** — Song Sonnet call tokens are tracked and included in the per-run cost average in the footer.
+
+## Files
+
+- `src/direction/spotify.ts` — MusicBrainz fetch, Claude pick, Spotify lookup, DB storage
+- `src/db.ts` — `direction_songs` table + indexes + token column migration
+- `src/http.ts` — Song generation wired into direction cron
+- `src/routes/direction.ts` — Song query for display
+- `src/routes/admin.ts` — `POST /admin/run-song` for manual testing
+- `src/ui/direction.html.ts` — Song card rendering (album art, Spotify link, connection reason)
+- `src/config.ts` — `spotifyClientId`, `spotifyClientSecret`
+- `scripts/test-spotify.ts` — CLI test script
+
+## Environment variables
+
+- `SPOTIFY_CLIENT_ID` — Spotify app client ID (set in Railway)
+- `SPOTIFY_CLIENT_SECRET` — Spotify app client secret (set in Railway)
