@@ -103,6 +103,7 @@ async function getAccessToken(): Promise<string> {
 interface SpotifyTrack {
   id: string;
   name: string;
+  uri: string;
   artists: { name: string }[];
   album: {
     name: string;
@@ -282,6 +283,13 @@ export async function generateSongRecommendation(directionId: number, attemptLog
 
       console.error(`[song] Claude picked: "${pick.title}" by ${pick.artist}`);
 
+      // Find the MusicBrainz release date for this pick
+      const mbMatch = releases.find((r) => {
+        const mbArtist = r["artist-credit"]?.map((c) => c.name).join(", ") || "";
+        return r.title === pick.title && mbArtist === pick.artist;
+      });
+      const mbReleaseDate = mbMatch?.date ?? null;
+
       // Step 3: Find on Spotify
       const track = await findOnSpotify(pick.title, pick.artist);
 
@@ -301,7 +309,7 @@ export async function generateSongRecommendation(directionId: number, attemptLog
       log.spotify_found = true;
       if (attemptLog) attemptLog.push(log);
 
-      // Step 4: Store
+      // Step 4: Store — use MusicBrainz release date and Spotify URI (opens app)
       const albumArt = track.album.images.find((img) => img.width >= 200)?.url
         ?? track.album.images[0]?.url
         ?? null;
@@ -317,8 +325,8 @@ export async function generateSongRecommendation(directionId: number, attemptLog
           track.name,
           track.artists.map((a) => a.name).join(", "),
           track.album.name,
-          track.album.release_date,
-          track.external_urls.spotify,
+          mbReleaseDate,
+          track.uri,
           albumArt,
           pick.reason
         );
@@ -330,8 +338,8 @@ export async function generateSongRecommendation(directionId: number, attemptLog
         title: track.name,
         artist: track.artists.map((a) => a.name).join(", "),
         album: track.album.name,
-        release_date: track.album.release_date,
-        spotify_url: track.external_urls.spotify,
+        release_date: mbReleaseDate,
+        spotify_url: track.uri,
         album_art_url: albumArt,
         reason: pick.reason,
         reaction: null,

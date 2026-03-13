@@ -120,7 +120,7 @@ function renderSongCard(song: StoredSong): string {
     <p class="song-album">${esc(song.album ?? "")}${releaseInfo}</p>
     <p class="song-reason">${esc(song.reason)}</p>
     <div class="song-actions">
-      <a class="song-link" href="${esc(song.spotify_url)}" target="_blank" rel="noopener">Listen on Spotify &rarr;</a>
+      <a class="song-link" href="${esc(song.spotify_url)}">Listen on Spotify &rarr;</a>
     </div>
     ${feedbackHtml}
   </div>
