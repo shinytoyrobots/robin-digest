@@ -188,7 +188,7 @@ ${sample.map((r, i) => `${i + 1}. ${formatMBRelease(r)}`).join("\n")}
   if (feedback.length > 0) {
     prompt += `\n## Past song feedback (learn from this):\n`;
     for (const f of feedback) {
-      prompt += `- "${f.title}" by ${f.artist} → ${f.reaction === "up" ? "liked" : "disliked"}\n`;
+      prompt += `- "${f.title}" by ${f.artist} → ${f.reaction === "good_choice" ? "liked" : "didn't resonate"}\n`;
     }
     prompt += `Lean toward styles/genres/moods that were liked, away from those disliked.\n`;
   }

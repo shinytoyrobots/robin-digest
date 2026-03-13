@@ -42,10 +42,7 @@ h3.card-title{font-size:.875rem}
 .song-actions{display:flex;align-items:center;gap:8px}
 .song-link{color:#1db954;font-weight:500;text-decoration:none;font-size:.8125rem}
 .song-link:hover{text-decoration:underline}
-.song-vote{background:#fff;border:1px solid #8d8d8d;padding:4px 10px;font-size:.875rem;cursor:pointer;line-height:1;transition:background .15s,border-color .15s}
-.song-vote:hover{background:#e0e0e0;border-color:#161616}
-.song-vote.active-up{background:#dcfce7;border-color:#1db954;color:#15803d}
-.song-vote.active-down{background:#fee2e2;border-color:#dc2626;color:#dc2626}`;
+`;
 
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -103,13 +100,14 @@ function renderSongCard(song: StoredSong): string {
 
   const releaseInfo = song.release_date ? ` &middot; ${esc(song.release_date)}` : "";
 
-  let voteHtml: string;
+  let feedbackHtml: string;
   if (song.reaction) {
-    const upClass = song.reaction === "up" ? " active-up" : "";
-    const downClass = song.reaction === "down" ? " active-down" : "";
-    voteHtml = `<button class="song-vote${upClass}" disabled>&#128077;</button><button class="song-vote${downClass}" disabled>&#128078;</button>`;
+    feedbackHtml = `<div class="feedback-done">You marked this: <strong>${esc(song.reaction.replace(/_/g, " "))}</strong></div>`;
   } else {
-    voteHtml = `<button class="song-vote" data-song-id="${song.id}" data-reaction="up">&#128077;</button><button class="song-vote" data-song-id="${song.id}" data-reaction="down">&#128078;</button>`;
+    feedbackHtml = `<div class="feedback-row" data-song-id="${song.id}">
+      <button data-reaction="good_choice">Good choice</button>
+      <button data-reaction="didnt_resonate">Didn't resonate</button>
+    </div>`;
   }
 
   return `<section class="song-section">
@@ -123,8 +121,8 @@ function renderSongCard(song: StoredSong): string {
     <p class="song-reason">${esc(song.reason)}</p>
     <div class="song-actions">
       <a class="song-link" href="${esc(song.spotify_url)}" target="_blank" rel="noopener">Listen on Spotify &rarr;</a>
-      ${voteHtml}
     </div>
+    ${feedbackHtml}
   </div>
 </div>
 </section>`;
@@ -282,9 +280,10 @@ document.querySelectorAll('.feedback-row button').forEach(btn => {
     } catch(e) { console.error(e); }
   });
 });
-document.querySelectorAll('.song-vote[data-song-id]').forEach(btn => {
+document.querySelectorAll('.feedback-row[data-song-id] button').forEach(btn => {
   btn.addEventListener('click', async function() {
-    const songId = parseInt(this.dataset.songId);
+    const row = this.closest('.feedback-row');
+    const songId = parseInt(row.dataset.songId);
     const reaction = this.dataset.reaction;
     try {
       const res = await fetch('/dailydirection/song-feedback', {
@@ -293,13 +292,7 @@ document.querySelectorAll('.song-vote[data-song-id]').forEach(btn => {
         body: JSON.stringify({ song_id: songId, reaction })
       });
       if (res.ok) {
-        const row = this.closest('.song-actions');
-        row.querySelectorAll('.song-vote').forEach(b => {
-          b.disabled = true;
-          if (b.dataset.reaction === reaction) {
-            b.classList.add(reaction === 'up' ? 'active-up' : 'active-down');
-          }
-        });
+        row.innerHTML = '<div class="feedback-done">You marked this: <strong>' + reaction.replace('_', ' ') + '</strong></div>';
       }
     } catch(e) { console.error(e); }
   });
