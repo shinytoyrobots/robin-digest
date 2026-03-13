@@ -3,6 +3,7 @@ import { getDb, getSetting } from "../db.js";
 import { generateDailyDirection } from "../direction/generator.js";
 import { createPauseRouter } from "../ui/shared.js";
 import { renderDirectionPage, renderHistorySection, type DirectionRow, type TokenAvg } from "../ui/direction.html.js";
+import type { StoredSong } from "../direction/spotify.js";
 
 export const directionRouter = express.Router();
 
@@ -76,8 +77,16 @@ directionRouter.get("/dailydirection", (req, res) => {
     };
   }
 
+  // Fetch song for today's direction
+  let song: StoredSong | null = null;
+  if (direction) {
+    song = db.prepare(
+      "SELECT * FROM direction_songs WHERE direction_id = ? LIMIT 1"
+    ).get(direction.id) as StoredSong | null ?? null;
+  }
+
   const historyHtml = renderHistorySection(pastDirections, feedbackByDirection);
-  res.type("html").send(renderDirectionPage(direction ?? null, feedbackMap, historyHtml, notice, dirPausedUntil, avgTokens));
+  res.type("html").send(renderDirectionPage(direction ?? null, feedbackMap, historyHtml, notice, dirPausedUntil, avgTokens, song));
 });
 
 directionRouter.get("/dailydirection/latest-timestamp", (_req, res) => {
@@ -102,6 +111,19 @@ directionRouter.post("/dailydirection/feedback", express.json(), (req, res) => {
     "INSERT INTO direction_feedback (direction_id, suggestion_index, reaction, note) VALUES (?, ?, ?, ?)"
   ).run(direction_id, suggestion_index, reaction, note ?? null);
 
+  res.json({ ok: true });
+});
+
+directionRouter.post("/dailydirection/song-feedback", express.json(), (req, res) => {
+  const { song_id, reaction } = req.body as { song_id: number; reaction: string };
+
+  if (!song_id || !["up", "down"].includes(reaction)) {
+    res.status(400).json({ error: "Invalid song feedback" });
+    return;
+  }
+
+  const db = getDb();
+  db.prepare("UPDATE direction_songs SET reaction = ? WHERE id = ?").run(reaction, song_id);
   res.json({ ok: true });
 });
 

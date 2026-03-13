@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/http.ts",
-    "start": "node dist/http.js"
+    "start": "node dist/http.js",
+    "test:spotify": "tsx scripts/test-spotify.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",

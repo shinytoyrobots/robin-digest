@@ -1,5 +1,6 @@
 import { esc, getTodayIso, renderSourceRefs, SHARED_CSS, FONT_LINK } from "./shared.js";
 import type { Suggestion } from "../direction/generator.js";
+import type { StoredSong } from "../direction/spotify.js";
 
 export type DirectionRow = { id: number; focus_angle: string; suggestions: string; created_at: string };
 export type TokenAvg = { avgIn: number; avgOut: number; avgCostUsd: number; n: number };
@@ -28,7 +29,24 @@ h3.card-title{font-size:.875rem}
 .engage-link a:hover{text-decoration:underline}
 .history{margin-top:2rem;border-top:1px solid #e0e0e0;padding-top:1rem}
 .model-select{border:1px solid #8d8d8d;border-radius:0;padding:4px 8px;font-size:.75rem;font-family:'IBM Plex Sans',sans-serif;background:#fff;cursor:pointer}
-.model-select:focus{outline:2px solid #0f62fe;outline-offset:-2px}`;
+.model-select:focus{outline:2px solid #0f62fe;outline-offset:-2px}
+.song-section{margin-top:2rem;padding-top:1rem;border-top:1px solid #e0e0e0}
+.song-card{background:#f4f4f4;border-left:3px solid #1db954;padding:1rem 1.25rem;margin-bottom:1rem;display:flex;gap:1rem;align-items:flex-start}
+.song-art{width:80px;height:80px;border-radius:2px;flex-shrink:0;object-fit:cover}
+.song-art-placeholder{width:80px;height:80px;background:#e0e0e0;border-radius:2px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#8d8d8d;font-size:1.5rem}
+.song-info{flex:1;min-width:0}
+.song-title{font-size:.9375rem;font-weight:600;margin:0 0 2px}
+.song-artist{font-size:.8125rem;color:#525252;margin:0 0 2px}
+.song-album{font-size:.75rem;color:#6f6f6f;margin:0 0 .5rem}
+.song-reason{font-size:.8125rem;color:#161616;margin:0 0 .75rem;font-style:italic}
+.song-actions{display:flex;align-items:center;gap:8px}
+.song-link{color:#1db954;font-weight:500;text-decoration:none;font-size:.8125rem}
+.song-link:hover{text-decoration:underline}
+.song-vote{background:#fff;border:1px solid #8d8d8d;padding:4px 10px;font-size:.875rem;cursor:pointer;line-height:1;transition:background .15s,border-color .15s}
+.song-vote:hover{background:#e0e0e0;border-color:#161616}
+.song-vote.active-up{background:#dcfce7;border-color:#1db954;color:#15803d}
+.song-vote.active-down{background:#fee2e2;border-color:#dc2626;color:#dc2626}`;
+
 
 const CATEGORY_COLORS: Record<string, string> = {
   writing: "#6366f1",
@@ -78,13 +96,48 @@ export function renderHistorySection(
   return html;
 }
 
+function renderSongCard(song: StoredSong): string {
+  const art = song.album_art_url
+    ? `<img class="song-art" src="${esc(song.album_art_url)}" alt="Album art">`
+    : `<div class="song-art-placeholder">&#9835;</div>`;
+
+  const releaseInfo = song.release_date ? ` &middot; ${esc(song.release_date)}` : "";
+
+  let voteHtml: string;
+  if (song.reaction) {
+    const upClass = song.reaction === "up" ? " active-up" : "";
+    const downClass = song.reaction === "down" ? " active-down" : "";
+    voteHtml = `<button class="song-vote${upClass}" disabled>&#128077;</button><button class="song-vote${downClass}" disabled>&#128078;</button>`;
+  } else {
+    voteHtml = `<button class="song-vote" data-song-id="${song.id}" data-reaction="up">&#128077;</button><button class="song-vote" data-song-id="${song.id}" data-reaction="down">&#128078;</button>`;
+  }
+
+  return `<section class="song-section">
+<h2 class="section-heading">Song of the day</h2>
+<div class="song-card">
+  ${art}
+  <div class="song-info">
+    <p class="song-title">${esc(song.title)}</p>
+    <p class="song-artist">${esc(song.artist)}</p>
+    <p class="song-album">${esc(song.album ?? "")}${releaseInfo}</p>
+    <p class="song-reason">${esc(song.reason)}</p>
+    <div class="song-actions">
+      <a class="song-link" href="${esc(song.spotify_url)}" target="_blank" rel="noopener">Listen on Spotify &rarr;</a>
+      ${voteHtml}
+    </div>
+  </div>
+</div>
+</section>`;
+}
+
 export function renderDirectionPage(
   direction: DirectionRow | null,
   feedbackMap: Map<number, string>,
   historyHtml: string,
   notice?: string,
   dirPausedUntil?: string | null,
-  avgTokens?: TokenAvg | null
+  avgTokens?: TokenAvg | null,
+  song?: StoredSong | null
 ): string {
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long", month: "long", day: "numeric", year: "numeric",
@@ -192,6 +245,7 @@ ${notice === "generating" ? `<div class="notice">New direction generating — re
 </div>
 ${suggestionsHtml}
 ${engageHtml}
+${song ? renderSongCard(song) : ""}
 ${historyHtml}
 <div class="footer">${generatedAt ? `Generated at ${generatedAt}` : "Daily Direction"} &middot; <a href="/">robin-cannon.dev</a>${avgTokens ? ` &middot; avg ~$${avgTokens.avgCostUsd.toFixed(4)}/run &middot; ${avgTokens.avgIn.toLocaleString()} in / ${avgTokens.avgOut.toLocaleString()} out tokens (${avgTokens.n} runs, 30d)` : ""}</div>
 <script>
@@ -224,6 +278,28 @@ document.querySelectorAll('.feedback-row button').forEach(btn => {
       });
       if (res.ok) {
         row.innerHTML = '<div class="feedback-done">Marked: <strong>' + reaction.replace('_', ' ') + '</strong></div>';
+      }
+    } catch(e) { console.error(e); }
+  });
+});
+document.querySelectorAll('.song-vote[data-song-id]').forEach(btn => {
+  btn.addEventListener('click', async function() {
+    const songId = parseInt(this.dataset.songId);
+    const reaction = this.dataset.reaction;
+    try {
+      const res = await fetch('/dailydirection/song-feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ song_id: songId, reaction })
+      });
+      if (res.ok) {
+        const row = this.closest('.song-actions');
+        row.querySelectorAll('.song-vote').forEach(b => {
+          b.disabled = true;
+          if (b.dataset.reaction === reaction) {
+            b.classList.add(reaction === 'up' ? 'active-up' : 'active-down');
+          }
+        });
       }
     } catch(e) { console.error(e); }
   });

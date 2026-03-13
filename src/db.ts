@@ -97,6 +97,21 @@ function initSchema(db: Database.Database): void {
       fetched_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS direction_songs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      direction_id INTEGER NOT NULL REFERENCES daily_directions(id),
+      track_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      artist TEXT NOT NULL,
+      album TEXT,
+      release_date TEXT,
+      spotify_url TEXT NOT NULL,
+      album_art_url TEXT,
+      reason TEXT NOT NULL,
+      reaction TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS deleted_sources (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       pipeline_id TEXT NOT NULL,
@@ -122,6 +137,8 @@ function initSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_digests_pipeline_created ON digests(pipeline_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_direction_feedback_created_at ON direction_feedback(created_at);
     CREATE INDEX IF NOT EXISTS idx_deleted_sources_deleted_at ON deleted_sources(deleted_at);
+    CREATE INDEX IF NOT EXISTS idx_direction_songs_direction_id ON direction_songs(direction_id);
+    CREATE INDEX IF NOT EXISTS idx_direction_songs_track_id ON direction_songs(track_id);
   `);
 
   // Migrations — add columns that may not exist on older databases

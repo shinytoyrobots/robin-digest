@@ -7,6 +7,7 @@ import { getDb, upsertPipelines, runDataMigrations } from "./db.js";
 import { createServer } from "./server.js";
 import { runAllPipelines } from "./pipeline/runner.js";
 import { generateDailyDirection } from "./direction/generator.js";
+import { generateSongRecommendation } from "./direction/spotify.js";
 import { isFeaturePaused } from "./ui/shared.js";
 import { digestsRouter } from "./routes/digests.js";
 import { directionRouter } from "./routes/direction.js";
@@ -141,6 +142,10 @@ if (cron.validate(config.directionCron)) {
     try {
       const id = await generateDailyDirection();
       console.error(`[cron] Daily direction generated: #${id}`);
+      const song = await generateSongRecommendation(id);
+      if (song) {
+        console.error(`[cron] Song of the day: "${song.title}" by ${song.artist}`);
+      }
     } catch (err) {
       console.error(`[cron] Direction error:`, err);
     }
