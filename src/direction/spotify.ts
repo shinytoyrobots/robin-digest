@@ -3,6 +3,69 @@ import { getDb } from "../db.js";
 import { generateText } from "../lib/claude.js";
 import type { Suggestion } from "./generator.js";
 
+const MB_USER_AGENT = "RobinDigest/1.0.0 ( https://robin-cannon.dev ) robin@shinytoyrobots.com";
+
+// --- MusicBrainz ---
+
+interface MBRelease {
+  id: string;
+  title: string;
+  date: string;
+  "artist-credit": { name: string; artist: { id: string; name: string } }[];
+  "release-group": { "primary-type": string };
+  status: string;
+}
+
+interface MBSearchResult {
+  releases: MBRelease[];
+  count: number;
+}
+
+async function fetchRecentReleases(): Promise<MBRelease[]> {
+  const now = new Date();
+  const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+  const fromDate = twoWeeksAgo.toISOString().slice(0, 10);
+  const toDate = now.toISOString().slice(0, 10);
+
+  const allReleases: MBRelease[] = [];
+
+  // Fetch singles, albums, and EPs in separate queries to get good coverage
+  for (const type of ["single", "album", "ep"]) {
+    const query = `date:[${fromDate} TO ${toDate}] AND status:official AND type:${type}`;
+    const url = `https://musicbrainz.org/ws/2/release?query=${encodeURIComponent(query)}&fmt=json&limit=100`;
+
+    try {
+      const res = await fetch(url, {
+        headers: { "User-Agent": MB_USER_AGENT },
+      });
+
+      if (!res.ok) {
+        console.error(`[musicbrainz] Search failed for ${type}: ${res.status}`);
+        continue;
+      }
+
+      const data = (await res.json()) as MBSearchResult;
+      console.error(`[musicbrainz] Found ${data.releases.length} recent ${type}s (of ${data.count} total)`);
+      allReleases.push(...data.releases);
+    } catch (err) {
+      console.error(`[musicbrainz] Error fetching ${type}s:`, err);
+    }
+
+    // Respect MusicBrainz rate limit: 1 request per second
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+  }
+
+  return allReleases;
+}
+
+function formatMBRelease(r: MBRelease): string {
+  const artist = r["artist-credit"]?.map((c) => c.name).join(", ") || "Unknown";
+  const type = r["release-group"]?.["primary-type"] || "release";
+  return `"${r.title}" by ${artist} (${type}, ${r.date})`;
+}
+
+// --- Spotify ---
+
 interface SpotifyToken {
   access_token: string;
   expires_at: number;
@@ -26,12 +89,10 @@ async function getAccessToken(): Promise<string> {
 
   if (!res.ok) {
     const errBody = await res.text();
-    console.error(`[spotify] Auth failed: ${res.status} — ${errBody}`);
     throw new Error(`Spotify auth failed: ${res.status} ${errBody}`);
   }
 
   const data = (await res.json()) as { access_token: string; expires_in: number };
-  console.error(`[spotify] Auth OK, token expires in ${data.expires_in}s`);
   cachedToken = {
     access_token: data.access_token,
     expires_at: Date.now() + data.expires_in * 1000,
@@ -52,63 +113,25 @@ interface SpotifyTrack {
   external_urls: { spotify: string };
 }
 
-interface SearchResult {
-  tracks: { items: SpotifyTrack[] };
-}
-
-async function spotifySearch(query: string): Promise<SpotifyTrack[]> {
+async function findOnSpotify(title: string, artist: string): Promise<SpotifyTrack | null> {
   const token = await getAccessToken();
-  const q = encodeURIComponent(query);
-  const url = `https://api.spotify.com/v1/search?q=${q}&type=track&limit=10`;
+  const q = encodeURIComponent(`${title} ${artist}`);
+  const url = `https://api.spotify.com/v1/search?q=${q}&type=track&limit=5`;
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
   });
 
   if (!res.ok) {
-    const body = await res.text();
-    console.error(`[spotify] Search failed: ${res.status} for query "${query}" — ${body}`);
-    return [];
+    console.error(`[spotify] Search failed: ${res.status}`);
+    return null;
   }
 
-  const data = (await res.json()) as SearchResult;
-  return data.tracks.items;
+  const data = (await res.json()) as { tracks: { items: SpotifyTrack[] } };
+  // Return best match — first result
+  return data.tracks.items[0] ?? null;
 }
 
-async function searchTrack(title: string, artist: string): Promise<SpotifyTrack[]> {
-  // Plain text search works much better than field prefixes (track:/artist:)
-  // which are overly restrictive and miss many results
-
-  // Try title + artist together
-  const combined = await spotifySearch(`${title} ${artist}`);
-  if (combined.length > 0) {
-    console.error(`[spotify] Found ${combined.length} results for "${title} ${artist}"`);
-    return combined;
-  }
-
-  // Fall back to artist-only to find any recent track by them
-  console.error(`[spotify] No results for title+artist, trying artist-only: "${artist}"`);
-  return spotifySearch(artist);
-}
-
-function isRecentRelease(releaseDate: string, precision: string): boolean {
-  const now = new Date();
-  const cutoff = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-
-  // Parse based on precision
-  let date: Date;
-  if (precision === "day") {
-    date = new Date(releaseDate + "T00:00:00Z");
-  } else if (precision === "month") {
-    // Use last day of month to be generous
-    const [y, m] = releaseDate.split("-").map(Number);
-    date = new Date(Date.UTC(y, m, 0)); // last day of month
-  } else {
-    // Year precision — too vague, skip
-    return false;
-  }
-
-  return date >= cutoff;
-}
+// --- DB helpers ---
 
 function getPastTrackIds(): Set<string> {
   const db = getDb();
@@ -135,56 +158,48 @@ function getRecentSongFeedback(): { title: string; artist: string; reaction: str
     .all() as { title: string; artist: string; reaction: string }[];
 }
 
-function buildSongPrompt(suggestions: Suggestion[], pastSongs: string[], feedback: { title: string; artist: string; reaction: string }[]): string {
-  const todayStr = new Date().toISOString().slice(0, 10);
+// --- Prompt ---
 
-  let prompt = `You are recommending a NEW music release for Robin Cannon based on today's daily direction content. Today is ${todayStr}.
+function buildSongPrompt(
+  suggestions: Suggestion[],
+  releases: MBRelease[],
+  pastSongs: string[],
+  feedback: { title: string; artist: string; reaction: string }[]
+): string {
+  // Shuffle and sample releases to keep prompt manageable
+  const shuffled = releases.sort(() => Math.random() - 0.5);
+  const sample = shuffled.slice(0, 80);
 
-CRITICAL: You must suggest a song released in ${new Date().getFullYear()}. Your training data is not current — you do NOT know what songs are out right now. Instead, suggest an artist who is ACTIVELY RELEASING MUSIC and name a plausible recent single or album track by them. Think of artists who release frequently: indie artists, electronic producers, hip-hop artists, singer-songwriters with active output. The system will verify via Spotify that the track exists and was released recently.
+  let prompt = `You are picking a song-of-the-day for Robin Cannon from a list of REAL, VERIFIED recent releases.
 
-Requirements:
-1. The artist must be someone who releases music regularly (not a legacy act with rare releases)
-2. Name a specific track title — your best guess at a recent single or album track by that artist
-3. The song should have a thematic, emotional, or conceptual connection to today's direction content
-4. Must be on Spotify
+Below is a list of music released in the last 14 days from MusicBrainz. These are real releases — do not invent or modify titles or artist names. Pick ONE that has a genuine thematic, emotional, or conceptual connection to today's daily direction content.
 
-Today's direction suggestions:
+## Today's direction suggestions:
 ${suggestions.map((s) => `- "${s.title}": ${s.body}`).join("\n")}
+
+## Recent releases (pick from this list ONLY):
+${sample.map((r, i) => `${i + 1}. ${formatMBRelease(r)}`).join("\n")}
 `;
 
   if (pastSongs.length > 0) {
-    prompt += `\nDo NOT suggest any of these previously recommended songs:\n${pastSongs.map((s) => `- ${s}`).join("\n")}\n`;
+    prompt += `\n## Do NOT pick any of these previously recommended songs:\n${pastSongs.map((s) => `- ${s}`).join("\n")}\n`;
   }
 
   if (feedback.length > 0) {
-    prompt += `\nPast song feedback (learn from this):\n`;
+    prompt += `\n## Past song feedback (learn from this):\n`;
     for (const f of feedback) {
       prompt += `- "${f.title}" by ${f.artist} → ${f.reaction === "up" ? "liked" : "disliked"}\n`;
     }
-    prompt += `Lean toward styles/genres that were liked, away from those disliked.\n`;
+    prompt += `Lean toward styles/genres/moods that were liked, away from those disliked.\n`;
   }
 
-  prompt += `\nRespond with ONLY a JSON object (no markdown, no explanation):
-{"title": "Song Title", "artist": "Artist Name", "reason": "One sentence explaining the connection to today's direction"}`;
+  prompt += `\nPick the release with the strongest connection. Respond with ONLY a JSON object (no markdown, no explanation):
+{"title": "Exact Title From List", "artist": "Exact Artist From List", "reason": "One sentence explaining the thematic connection to today's direction"}`;
 
   return prompt;
 }
 
-interface SongSuggestion {
-  title: string;
-  artist: string;
-  reason: string;
-}
-
-function parseSongResponse(raw: string): SongSuggestion {
-  const cleaned = raw.replace(/```json?\s*/g, "").replace(/```/g, "").trim();
-  const parsed = JSON.parse(cleaned);
-  return {
-    title: String(parsed.title),
-    artist: String(parsed.artist),
-    reason: String(parsed.reason),
-  };
-}
+// --- Main ---
 
 export interface StoredSong {
   id: number;
@@ -202,18 +217,15 @@ export interface StoredSong {
 }
 
 export interface AttemptLog {
-  attempt: number;
-  artist: string;
-  title: string;
-  tracks_found: number;
-  recent_tracks: number;
-  sample_dates: string[];
+  releases_fetched: number;
+  pick?: { title: string; artist: string; reason: string };
+  spotify_found: boolean;
   error?: string;
 }
 
-export async function generateSongRecommendation(directionId: number, attemptLogs?: AttemptLog[]): Promise<StoredSong | null> {
+export async function generateSongRecommendation(directionId: number, attemptLog?: AttemptLog[]): Promise<StoredSong | null> {
   if (!config.spotifyClientId || !config.spotifyClientSecret) {
-    console.error("[spotify] Missing credentials, skipping song recommendation");
+    console.error("[song] Missing Spotify credentials, skipping");
     return null;
   }
 
@@ -223,7 +235,7 @@ export async function generateSongRecommendation(directionId: number, attemptLog
     .get(directionId) as { suggestions: string } | undefined;
 
   if (!direction) {
-    console.error(`[spotify] Direction #${directionId} not found`);
+    console.error(`[song] Direction #${directionId} not found`);
     return null;
   }
 
@@ -231,92 +243,110 @@ export async function generateSongRecommendation(directionId: number, attemptLog
   try {
     suggestions = JSON.parse(direction.suggestions);
   } catch {
-    console.error("[spotify] Failed to parse direction suggestions");
+    console.error("[song] Failed to parse direction suggestions");
     return null;
   }
+
+  // Step 1: Fetch recent releases from MusicBrainz
+  console.error("[song] Fetching recent releases from MusicBrainz...");
+  const releases = await fetchRecentReleases();
+
+  if (releases.length === 0) {
+    console.error("[song] No recent releases found on MusicBrainz");
+    if (attemptLog) attemptLog.push({ releases_fetched: 0, spotify_found: false, error: "No MusicBrainz releases" });
+    return null;
+  }
+
+  console.error(`[song] ${releases.length} total recent releases`);
 
   const pastTrackIds = getPastTrackIds();
   const pastSongs = getPastSongTitles();
   const feedback = getRecentSongFeedback();
-  const prompt = buildSongPrompt(suggestions, pastSongs, feedback);
 
-  const MAX_ATTEMPTS = 3;
+  // Step 2: Ask Claude to pick from the real releases
+  const MAX_ATTEMPTS = 2;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const log: AttemptLog = { releases_fetched: releases.length, spotify_found: false };
+
     try {
+      const prompt = buildSongPrompt(suggestions, releases, pastSongs, feedback);
       const raw = await generateText(prompt, undefined, {
         model: "claude-sonnet-4-6",
-        temperature: 1.0,
+        temperature: 0.8,
       });
-      const suggestion = parseSongResponse(raw);
-      console.error(`[spotify] Attempt ${attempt}: "${suggestion.title}" by ${suggestion.artist}`);
 
-      const tracks = await searchTrack(suggestion.title, suggestion.artist);
+      const cleaned = raw.replace(/```json?\s*/g, "").replace(/```/g, "").trim();
+      const pick = JSON.parse(cleaned) as { title: string; artist: string; reason: string };
+      log.pick = pick;
 
-      const recentTracks = tracks.filter(
-        (t) => !pastTrackIds.has(t.id) && isRecentRelease(t.album.release_date, t.album.release_date_precision)
-      );
+      console.error(`[song] Claude picked: "${pick.title}" by ${pick.artist}`);
 
-      if (attemptLogs) {
-        attemptLogs.push({
-          attempt,
-          artist: suggestion.artist,
-          title: suggestion.title,
-          tracks_found: tracks.length,
-          recent_tracks: recentTracks.length,
-          sample_dates: tracks.slice(0, 5).map((t) => `${t.name} (${t.album.release_date})`),
-        });
+      // Step 3: Find on Spotify
+      const track = await findOnSpotify(pick.title, pick.artist);
+
+      if (!track) {
+        console.error(`[song] Not found on Spotify: "${pick.title}" by ${pick.artist}`);
+        if (attemptLog) attemptLog.push(log);
+        continue;
       }
 
-      for (const track of recentTracks) {
-
-        // Found a valid recent track
-        const albumArt = track.album.images.find((img) => img.width >= 200)?.url
-          ?? track.album.images[0]?.url
-          ?? null;
-
-        const result = db
-          .prepare(
-            `INSERT INTO direction_songs (direction_id, track_id, title, artist, album, release_date, spotify_url, album_art_url, reason)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-          )
-          .run(
-            directionId,
-            track.id,
-            track.name,
-            track.artists.map((a) => a.name).join(", "),
-            track.album.name,
-            track.album.release_date,
-            track.external_urls.spotify,
-            albumArt,
-            suggestion.reason
-          );
-
-        const song: StoredSong = {
-          id: Number(result.lastInsertRowid),
-          direction_id: directionId,
-          track_id: track.id,
-          title: track.name,
-          artist: track.artists.map((a) => a.name).join(", "),
-          album: track.album.name,
-          release_date: track.album.release_date,
-          spotify_url: track.external_urls.spotify,
-          album_art_url: albumArt,
-          reason: suggestion.reason,
-          reaction: null,
-          created_at: new Date().toISOString(),
-        };
-
-        console.error(`[spotify] Stored song: "${song.title}" by ${song.artist} (released ${song.release_date})`);
-        return song;
+      if (pastTrackIds.has(track.id)) {
+        console.error(`[song] Already recommended: ${track.id}`);
+        log.error = "Already recommended";
+        if (attemptLog) attemptLog.push(log);
+        continue;
       }
 
-      console.error(`[spotify] Attempt ${attempt}: No recent tracks found for "${suggestion.title}" by ${suggestion.artist}`);
+      log.spotify_found = true;
+      if (attemptLog) attemptLog.push(log);
+
+      // Step 4: Store
+      const albumArt = track.album.images.find((img) => img.width >= 200)?.url
+        ?? track.album.images[0]?.url
+        ?? null;
+
+      const result = db
+        .prepare(
+          `INSERT INTO direction_songs (direction_id, track_id, title, artist, album, release_date, spotify_url, album_art_url, reason)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(
+          directionId,
+          track.id,
+          track.name,
+          track.artists.map((a) => a.name).join(", "),
+          track.album.name,
+          track.album.release_date,
+          track.external_urls.spotify,
+          albumArt,
+          pick.reason
+        );
+
+      const song: StoredSong = {
+        id: Number(result.lastInsertRowid),
+        direction_id: directionId,
+        track_id: track.id,
+        title: track.name,
+        artist: track.artists.map((a) => a.name).join(", "),
+        album: track.album.name,
+        release_date: track.album.release_date,
+        spotify_url: track.external_urls.spotify,
+        album_art_url: albumArt,
+        reason: pick.reason,
+        reaction: null,
+        created_at: new Date().toISOString(),
+      };
+
+      console.error(`[song] Stored: "${song.title}" by ${song.artist} (released ${song.release_date})`);
+      return song;
     } catch (err) {
-      console.error(`[spotify] Attempt ${attempt} error:`, err);
+      log.error = String(err);
+      if (attemptLog) attemptLog.push(log);
+      console.error(`[song] Attempt ${attempt} error:`, err);
     }
   }
 
-  console.error("[spotify] All attempts exhausted, no song recommendation today");
+  console.error("[song] All attempts exhausted, no song recommendation today");
   return null;
 }
