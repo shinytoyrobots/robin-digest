@@ -70,25 +70,19 @@ async function spotifySearch(query: string): Promise<SpotifyTrack[]> {
 }
 
 async function searchTrack(title: string, artist: string): Promise<SpotifyTrack[]> {
-  const year = new Date().getFullYear();
+  // Plain text search works much better than field prefixes (track:/artist:)
+  // which are overly restrictive and miss many results
 
-  // Try exact match with year filter
-  const exact = await spotifySearch(`track:${title} artist:${artist} year:${year}`);
-  if (exact.length > 0) {
-    console.error(`[spotify] Found ${exact.length} results for exact match + year:${year}`);
-    return exact;
+  // Try title + artist together
+  const combined = await spotifySearch(`${title} ${artist}`);
+  if (combined.length > 0) {
+    console.error(`[spotify] Found ${combined.length} results for "${title} ${artist}"`);
+    return combined;
   }
 
-  // Try without year filter
-  const noYear = await spotifySearch(`track:${title} artist:${artist}`);
-  if (noYear.length > 0) {
-    console.error(`[spotify] Found ${noYear.length} results for exact match (no year filter)`);
-    return noYear;
-  }
-
-  // Try artist-only without year filter — let isRecentRelease filter in code
-  console.error(`[spotify] No exact match, trying artist-only: "${artist}"`);
-  return spotifySearch(`artist:${artist}`);
+  // Fall back to artist-only to find any recent track by them
+  console.error(`[spotify] No results for title+artist, trying artist-only: "${artist}"`);
+  return spotifySearch(artist);
 }
 
 function isRecentRelease(releaseDate: string, precision: string): boolean {
