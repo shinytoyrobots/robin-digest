@@ -10,6 +10,7 @@ import { stripHtml } from "../lib/html.js";
 import { generateText } from "../lib/claude.js";
 
 export const adminRouter = express.Router();
+export const sourcesPageRouter = express.Router();
 
 const SOURCE_LIMIT = 20;
 
@@ -85,7 +86,7 @@ adminRouter.get("/admin/stats", (_req, res) => {
   res.json(rows);
 });
 
-adminRouter.get("/sources", (req, res) => {
+sourcesPageRouter.get("/sources", (req, res) => {
   const db = getDb();
   const sources = db.prepare(
     "SELECT s.pipeline_id, p.name as pipeline_name, s.name, s.url, s.enabled, s.last_fetched_at, " +
@@ -155,7 +156,7 @@ adminRouter.post("/admin/seed-sources", express.json(), (req, res) => {
   res.json({ pipeline_id, total_sources: count });
 });
 
-adminRouter.delete("/admin/delete-source", express.json(), (req, res) => {
+sourcesPageRouter.delete("/admin/delete-source", express.json(), (req, res) => {
   const { pipeline_id, url } = req.body as { pipeline_id: string; url: string };
   if (!pipeline_id || !url) {
     res.status(400).json({ error: "pipeline_id and url required" });
@@ -177,7 +178,7 @@ adminRouter.delete("/admin/delete-source", express.json(), (req, res) => {
   }
 });
 
-adminRouter.post("/admin/reactivate-source", express.json(), (req, res) => {
+sourcesPageRouter.post("/admin/reactivate-source", express.json(), (req, res) => {
   const { id } = req.body as { id: number };
   if (!id) { res.status(400).json({ error: "id required" }); return; }
   const db = getDb();
@@ -196,7 +197,7 @@ adminRouter.post("/admin/reactivate-source", express.json(), (req, res) => {
   }
 });
 
-adminRouter.post("/admin/suggest-source", express.json(), async (req, res) => {
+sourcesPageRouter.post("/admin/suggest-source", express.json(), async (req, res) => {
   const { url } = req.body as { url: string };
   if (!url) { res.status(400).json({ error: "url required" }); return; }
 

@@ -11,7 +11,7 @@ import { generateSongRecommendation } from "./direction/spotify.js";
 import { isFeaturePaused } from "./ui/shared.js";
 import { digestsRouter } from "./routes/digests.js";
 import { directionRouter } from "./routes/direction.js";
-import { adminRouter, autoDeleteStaleSources, purgeOldDeletedSources } from "./routes/admin.js";
+import { adminRouter, sourcesPageRouter, autoDeleteStaleSources, purgeOldDeletedSources } from "./routes/admin.js";
 
 // Initialize database and load pipeline configs
 getDb();
@@ -45,6 +45,7 @@ app.get("/", (_req, res) => {
 
 app.use(digestsRouter);
 app.use(directionRouter);
+app.use(sourcesPageRouter);
 app.use(authMiddleware, adminRouter);
 
 // --- MCP endpoint ---
