@@ -123,7 +123,7 @@ adminRouter.post("/admin/update-source", express.json(), (req, res) => {
   res.json({ updated: 1, pipeline_id, url: new_url ?? url });
 });
 
-adminRouter.post("/admin/seed-sources", express.json(), (req, res) => {
+sourcesPageRouter.post("/admin/seed-sources", express.json(), (req, res) => {
   const { pipeline_id, sources } = req.body as {
     pipeline_id: string;
     sources: { name: string; url: string; feed_url?: string; feed_type?: string }[];
