@@ -327,8 +327,28 @@ adminRouter.post("/admin/run-stale-cleanup", (_req, res) => {
 
 adminRouter.post("/admin/run-direction", express.json(), (_req, res) => {
   console.error("[admin] Manual direction generation");
+  const db = getDb();
+
+  // Find the current direction's song before regenerating
+  const currentDirection = db.prepare(
+    `SELECT id FROM daily_directions
+     WHERE created_at > datetime('now', '-1 day')
+     ORDER BY created_at DESC LIMIT 1`
+  ).get() as { id: number } | undefined;
+
+  const existingSong = currentDirection
+    ? db.prepare(
+        "SELECT id FROM direction_songs WHERE direction_id = ? ORDER BY created_at DESC LIMIT 1"
+      ).get(currentDirection.id) as { id: number } | undefined
+    : undefined;
+
   res.status(202).json({ status: "accepted" });
   generateDailyDirection().then(id => {
+    if (existingSong) {
+      db.prepare("UPDATE direction_songs SET direction_id = ? WHERE id = ?")
+        .run(id, existingSong.id);
+      console.error(`[admin] Carried forward song #${existingSong.id} to direction #${id}`);
+    }
     console.error(`[admin] Daily direction generated: #${id}`);
   }).catch(err => {
     console.error("[admin] Direction generation error:", err);

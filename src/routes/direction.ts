@@ -130,7 +130,30 @@ directionRouter.post("/dailydirection/refresh", express.urlencoded({ extended: f
   const requestedModel = req.body?.model as string | undefined;
   const model = ALLOWED_MODELS.includes(requestedModel ?? "") ? requestedModel : undefined;
   console.error(`[direction] Manual refresh triggered (model: ${model ?? "default"})`);
-  generateDailyDirection(model).catch(err => console.error("[direction] Refresh error:", err));
+
+  const db = getDb();
+  // Find the current direction's song before regenerating, so we can carry it forward
+  const currentDirection = db.prepare(
+    `SELECT id FROM daily_directions
+     WHERE created_at > datetime('now', '-1 day')
+     ORDER BY created_at DESC LIMIT 1`
+  ).get() as { id: number } | undefined;
+
+  const existingSong = currentDirection
+    ? db.prepare(
+        "SELECT id FROM direction_songs WHERE direction_id = ? ORDER BY created_at DESC LIMIT 1"
+      ).get(currentDirection.id) as { id: number } | undefined
+    : undefined;
+
+  generateDailyDirection(model).then(newId => {
+    // Re-link the existing song to the new direction
+    if (existingSong) {
+      db.prepare("UPDATE direction_songs SET direction_id = ? WHERE id = ?")
+        .run(newId, existingSong.id);
+      console.error(`[direction] Carried forward song #${existingSong.id} to direction #${newId}`);
+    }
+  }).catch(err => console.error("[direction] Refresh error:", err));
+
   res.redirect("/dailydirection?status=generating");
 });
 
