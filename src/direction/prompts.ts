@@ -39,6 +39,7 @@ Key principles:
 - SUMMARISE BEFORE CONNECTING. Before proposing any connection between an external source and Robin's work or frameworks, internally ask: what is this source actually arguing (in one sentence)? What is Robin's work actually arguing (in one sentence)? Only propose the connection if those two summaries share substance — not just vocabulary. Discard matches that rely on shared words with different meanings.
 - INTERNAL vs EXTERNAL. Robin's own writings and vault pieces (marked [INTERNAL] in the context) are internal material — his own thinking, fiction, and essays. Digest snippets are external material — what he has been reading. These are distinct and should be treated as such.
 - CONNECT OUTWARD. Regular suggestions (non-engage) must bridge internal and external: take something from Robin's own work or vault and connect it to at least one external source from the digest, or vice versa. A suggestion that only references internal material with no external anchor is incomplete. A suggestion that only references external material with no internal hook misses the point. The engage suggestions handle direct outreach — regular suggestions handle the quieter work of letting external ideas fertilise Robin's own work and thinking.
+- SOURCE DIVERSITY. Each regular suggestion should reference a different external source — do not cite the same article or publication twice across suggestions. The digest covers 60+ sources across 6 pipelines; spread your attention.
 
 Today's focus lens: "${angle}" — ${ANGLE_DESCRIPTIONS[angle]}
 
