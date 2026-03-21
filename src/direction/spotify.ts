@@ -10,6 +10,7 @@ const MB_USER_AGENT = "RobinDigest/1.0.0 ( https://robin-cannon.dev ) robin@shin
 interface MBRelease {
   id: string;
   title: string;
+  disambiguation: string;
   date: string;
   "artist-credit": { name: string; artist: { id: string; name: string } }[];
   "release-group": { "primary-type": string };
@@ -58,10 +59,14 @@ async function fetchRecentReleases(): Promise<MBRelease[]> {
   return allReleases;
 }
 
+function fullMBTitle(r: MBRelease): string {
+  return r.disambiguation ? `${r.title} (${r.disambiguation})` : r.title;
+}
+
 function formatMBRelease(r: MBRelease): string {
   const artist = r["artist-credit"]?.map((c) => c.name).join(", ") || "Unknown";
   const type = r["release-group"]?.["primary-type"] || "release";
-  return `"${r.title}" by ${artist} (${type}, ${r.date})`;
+  return `"${fullMBTitle(r)}" by ${artist} (${type}, ${r.date})`;
 }
 
 // --- Spotify ---
@@ -270,15 +275,18 @@ export async function generateSongRecommendation(directionId: number, attemptLog
 
       console.error(`[song] Claude picked: "${pick.title}" by ${pick.artist}`);
 
-      // Find the MusicBrainz release date for this pick
+      // Find the MusicBrainz release to get exact title and date
       const mbMatch = releases.find((r) => {
         const mbArtist = r["artist-credit"]?.map((c) => c.name).join(", ") || "";
-        return r.title === pick.title && mbArtist === pick.artist;
+        return fullMBTitle(r) === pick.title && mbArtist === pick.artist;
       });
       const mbReleaseDate = mbMatch?.date ?? null;
 
+      // Use the full MusicBrainz title (with disambiguation) for Spotify search
+      const searchTitle = mbMatch ? fullMBTitle(mbMatch) : pick.title;
+
       // Step 3: Find on Spotify
-      const track = await findOnSpotify(pick.title, pick.artist);
+      const track = await findOnSpotify(searchTitle, pick.artist);
 
       if (!track) {
         console.error(`[song] Not found on Spotify: "${pick.title}" by ${pick.artist}`);
