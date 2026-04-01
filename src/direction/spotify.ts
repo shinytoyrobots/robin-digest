@@ -256,7 +256,7 @@ export async function generateSongRecommendation(directionId: number, attemptLog
 
 
   // Step 2: Ask Claude to pick from the real releases
-  const MAX_ATTEMPTS = 2;
+  const MAX_ATTEMPTS = 3;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const log: AttemptLog = { releases_fetched: releases.length, spotify_found: false };
@@ -270,7 +270,10 @@ export async function generateSongRecommendation(directionId: number, attemptLog
       });
 
       const cleaned = result.text.replace(/```json?\s*/g, "").replace(/```/g, "").trim();
-      const pick = JSON.parse(cleaned) as { title: string; artist: string; reason: string };
+      // Extract first JSON object — Claude sometimes appends explanation text after the }
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error("No JSON object found in response");
+      const pick = JSON.parse(jsonMatch[0]) as { title: string; artist: string; reason: string };
       log.pick = pick;
 
       console.error(`[song] Claude picked: "${pick.title}" by ${pick.artist}`);
