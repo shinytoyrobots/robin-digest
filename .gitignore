@@ -2,3 +2,8 @@ node_modules/
 dist/
 data/
 .env
+
+# flow effort working artifacts
+efforts/*/flow-state.yaml
+efforts/*/generations/
+.flow-index/

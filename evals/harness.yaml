@@ -1,0 +1,81 @@
+schema-version: "1.0"
+suite-version: "0.1.0"
+
+# This effort overrides the default 6 dimensions. See spec/constitution.md
+# "Dimension defaults" section for rationale.
+
+dimensions:
+  - name: source-diversity
+    graders: [source-diversity]
+    datasets:
+      - source-diversity-real-v1
+      - source-diversity-adv-v1
+    threshold: 0.95
+    grader-type: deterministic
+    description: >-
+      Verifies each regular suggestion (category != "engage") in a direction
+      cites a pairwise-distinct set of external URLs/hosts. See SR-001.
+
+  - name: internal-external-bridging
+    graders: [internal-external-bridging]
+    datasets:
+      - internal-external-bridging-real-v1
+      - internal-external-bridging-adv-v1
+    threshold: 0.90
+    grader-type: hybrid  # deterministic structural check + LLM-judge for substance
+    description: >-
+      Verifies each regular suggestion contains both an internal anchor (no URL)
+      and an external anchor (URL), AND the connection is substantive
+      (LLM-judge mode for SR-003 adversarial check). See SR-002, SR-003.
+
+weights:
+  source-diversity: 0.50
+  internal-external-bridging: 0.50
+
+mappings:
+  SR-001:
+    grader: source-diversity
+    datasets: [source-diversity-real-v1, source-diversity-adv-v1]
+    threshold: 0.95
+  SR-002:
+    grader: internal-external-bridging
+    datasets: [internal-external-bridging-real-v1]
+    threshold: 0.90
+  SR-003:
+    grader: internal-external-bridging
+    grader-mode: adversarial
+    datasets: [internal-external-bridging-adv-v1]
+    threshold: 0.80
+
+goodhart-mitigation:
+  adversarial-required-for: [source-diversity, internal-external-bridging]
+  rotation-period-days: 90
+  score-climb-flag-threshold: 0.30
+  real-dataset-floor-pct: 50  # adversarial datasets must be ≥50% real failure modes (constitution rule 3)
+
+metastable:
+  # Metastable detection is not meaningful for this measurement-only effort.
+  # Retained for schema compatibility but never satisfied.
+  stability-threshold: 1.0
+  spec-proximity-threshold: 1.0
+  pareto-dimension-minimum: 2
+
+artifact-shape:
+  # What the eval suite scores: a row from daily_directions.suggestions (JSON-parsed)
+  type: direction-row
+  schema-ref: src/direction/generator.ts:Suggestion
+  source-table: daily_directions
+  source-column: suggestions
+
+deferred-dimensions:
+  # Listed for visibility; not active in v0.1.0
+  - name: track-purity
+    rationale: Defer until source-diversity + bridging baselines are stable
+  - name: lens-coherence
+    rationale: LLM-judge intensive; defer until prompt is stable
+
+notes:
+  default-dimensions-disabled: [correctness, performance, maintainability, accessibility, security, cost]
+  default-dimensions-disabled-rationale: >-
+    Artifact under evaluation is LLM-generated text content, not executable code.
+    Default dimensions are not applicable. See constitution.md.

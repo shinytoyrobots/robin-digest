@@ -355,6 +355,39 @@ adminRouter.post("/admin/run-direction", express.json(), (_req, res) => {
   });
 });
 
+adminRouter.get("/admin/directions/export", (req, res) => {
+  const requested = parseInt((req.query.limit as string) || "50", 10);
+  const limit = Math.min(Math.max(Number.isFinite(requested) ? requested : 50, 1), 200);
+  const format = (req.query.format as string) === "jsonl" ? "jsonl" : "json";
+  const db = getDb();
+  const rows = db.prepare(
+    "SELECT id, focus_angle, suggestions, context_summary, input_tokens, output_tokens, model_used, created_at FROM daily_directions ORDER BY created_at DESC LIMIT ?"
+  ).all(limit) as { id: number; focus_angle: string; suggestions: string; context_summary: string | null; input_tokens: number | null; output_tokens: number | null; model_used: string | null; created_at: string }[];
+
+  const records = rows.map(r => {
+    let parsed: unknown = null;
+    try { parsed = JSON.parse(r.suggestions); } catch { parsed = null; }
+    return {
+      direction_id: r.id,
+      focus_angle: r.focus_angle,
+      suggestions: parsed,
+      context_summary: r.context_summary,
+      input_tokens: r.input_tokens,
+      output_tokens: r.output_tokens,
+      model_used: r.model_used,
+      created_at: r.created_at,
+    };
+  });
+
+  if (format === "jsonl") {
+    res.type("application/x-ndjson");
+    for (const rec of records) res.write(JSON.stringify(rec) + "\n");
+    res.end();
+  } else {
+    res.json({ count: records.length, records });
+  }
+});
+
 adminRouter.post("/admin/run-song", express.json(), async (req, res) => {
   const db = getDb();
   const directionId = req.body?.direction_id as number | undefined;
