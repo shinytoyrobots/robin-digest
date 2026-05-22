@@ -4,12 +4,15 @@ import { config } from "../config.js";
 import { gatherContext } from "./gatherer.js";
 import { pickRandomAngle, buildPrompt } from "./prompts.js";
 
+export type Track = "professional" | "fiction";
+
 export interface Suggestion {
   title: string;
   body: string;
   source_refs: string[];
   source_url?: string;
   category: string;
+  track: Track;
 }
 
 function parseResponse(raw: string): Suggestion[] {
@@ -18,13 +21,18 @@ function parseResponse(raw: string): Suggestion[] {
   const parsed = JSON.parse(cleaned);
   if (!Array.isArray(parsed)) throw new Error("Response is not an array");
 
-  return parsed.map((item: Record<string, unknown>) => ({
-    title: String(item.title || "Untitled"),
-    body: String(item.body || ""),
-    source_refs: Array.isArray(item.source_refs) ? item.source_refs.map(String) : [],
-    source_url: item.source_url ? String(item.source_url) : undefined,
-    category: String(item.category || "creative"),
-  }));
+  return parsed.map((item: Record<string, unknown>) => {
+    const rawTrack = String(item.track || "professional").toLowerCase();
+    const track: Track = rawTrack === "fiction" ? "fiction" : "professional";
+    return {
+      title: String(item.title || "Untitled"),
+      body: String(item.body || ""),
+      source_refs: Array.isArray(item.source_refs) ? item.source_refs.map(String) : [],
+      source_url: item.source_url ? String(item.source_url) : undefined,
+      category: String(item.category || "creative"),
+      track,
+    };
+  });
 }
 
 export async function generateDailyDirection(modelOverride?: string): Promise<number> {
@@ -63,7 +71,7 @@ export async function generateDailyDirection(modelOverride?: string): Promise<nu
     } catch {
       // Store raw text as a single fallback suggestion
       console.error("[direction] Parse failed again, storing raw text");
-      suggestions = [{ title: "Daily Direction", body: raw.slice(0, 500), source_refs: [], category: "creative" }];
+      suggestions = [{ title: "Daily Direction", body: raw.slice(0, 500), source_refs: [], category: "creative", track: "professional" }];
     }
   }
 

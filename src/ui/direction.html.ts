@@ -1,6 +1,16 @@
 import { esc, getTodayIso, renderSourceRefs, SHARED_CSS, FONT_LINK } from "./shared.js";
-import type { Suggestion } from "../direction/generator.js";
+import type { Suggestion, Track } from "../direction/generator.js";
 import type { StoredSong } from "../direction/spotify.js";
+
+const TRACK_LABELS: Record<Track, { heading: string; sub: string }> = {
+  professional: { heading: "Professional", sub: "Signals &middot; Field Notes" },
+  fiction: { heading: "Fiction", sub: "Shiny Toy Robots &middot; Alternate Frequencies" },
+};
+const TRACK_ORDER: Track[] = ["professional", "fiction"];
+
+function trackOf(s: Suggestion): Track {
+  return s.track === "fiction" ? "fiction" : "professional";
+}
 
 export type DirectionRow = { id: number; focus_angle: string; suggestions: string; created_at: string };
 export type TokenAvg = { avgIn: number; avgOut: number; avgCostUsd: number; n: number };
@@ -8,6 +18,11 @@ export type TokenAvg = { avgIn: number; avgOut: number; avgCostUsd: number; n: n
 const PAGE_CSS = `${SHARED_CSS}
 .date{color:#525252;font-size:.875rem;margin-top:0;margin-bottom:1rem}
 .lens{color:#525252;font-size:.875rem;margin:.5rem 0 .75rem}
+.track-section{margin-top:1.5rem}
+.track-section:first-of-type{margin-top:1rem}
+.track-heading{font-size:.8125rem;font-weight:600;color:#161616;margin:0 0 .25rem;text-transform:uppercase;letter-spacing:.06em;font-family:'IBM Plex Mono',monospace}
+.track-sub{color:#6f6f6f;font-size:.75rem;margin:0 0 .875rem;padding-bottom:.5rem;border-bottom:1px solid #e0e0e0}
+.engage-subheading{font-size:.75rem;font-weight:600;color:#525252;margin:1rem 0 .5rem;text-transform:uppercase;letter-spacing:.06em;font-family:'IBM Plex Mono',monospace}
 .card{background:#f4f4f4;border-left:3px solid #0f62fe;padding:1rem 1.25rem;margin-bottom:1rem}
 .card-title{font-size:.9375rem;font-weight:600;margin:.375rem 0 .25rem}
 .card-body{margin:.375rem 0;font-size:.875rem;color:#161616}
@@ -22,7 +37,6 @@ h3.card-title{font-size:.875rem}
 .note-input{flex:1;min-width:120px;border:1px solid #8d8d8d;border-radius:0;padding:4px 8px;font-size:.75rem;font-family:'IBM Plex Sans',sans-serif}
 .note-input:focus{outline:2px solid #0f62fe;outline-offset:-2px}
 .feedback-done{color:#198038;font-size:.8125rem;margin-top:.75rem}
-.engage-section{margin-top:2rem;padding-top:1rem;border-top:1px solid #e0e0e0}
 .engage-card{border-left-color:#e11d48}
 .engage-link{margin-top:.5rem}
 .engage-link a{color:#e11d48;font-weight:500;text-decoration:none;font-size:.875rem}
@@ -58,6 +72,20 @@ function feedbackButtons(reactions: string[]): string {
   return reactions.map(r => `<button data-reaction="${r}">${r.replace("_", " ").replace(/^\w/, c => c.toUpperCase())}</button>`).join("\n");
 }
 
+function renderHistoryCard(s: Suggestion, reaction: string | undefined): string {
+  const color = CATEGORY_COLORS[s.category] || "#6f6f6f";
+  const isEngage = s.category === "engage";
+  let html = `<div class="card${isEngage ? " engage-card" : ""}">`;
+  html += `<span class="pill" style="background:${color}">${esc(s.category)}</span>`;
+  html += `<h3 class="card-title">${esc(s.title)}</h3>`;
+  html += `<p class="card-body">${esc(s.body)}</p>`;
+  if (reaction) {
+    html += `<div class="feedback-done">Marked: <strong>${esc(reaction.replace(/_/g, " "))}</strong></div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
 export function renderHistorySection(
   pastDirections: DirectionRow[],
   feedbackByDirection: Map<number, Map<number, string>>
@@ -74,19 +102,26 @@ export function renderHistorySection(
 
     html += `<p class="lens">Lens: <strong>${esc(dir.focus_angle.replace(/-/g, " "))}</strong></p>`;
 
-    suggestions.forEach((s, i) => {
-      const color = CATEGORY_COLORS[s.category] || "#6f6f6f";
-      const reaction = feedbackMap.get(i);
-      const isEngage = s.category === "engage";
-      html += `<div class="card${isEngage ? " engage-card" : ""}">`;
-      html += `<span class="pill" style="background:${color}">${esc(s.category)}</span>`;
-      html += `<h3 class="card-title">${esc(s.title)}</h3>`;
-      html += `<p class="card-body">${esc(s.body)}</p>`;
-      if (reaction) {
-        html += `<div class="feedback-done">Marked: <strong>${esc(reaction.replace(/_/g, " "))}</strong></div>`;
+    const indexed = suggestions.map((s, i) => ({ s, i }));
+
+    for (const track of TRACK_ORDER) {
+      const inTrack = indexed.filter(({ s }) => trackOf(s) === track);
+      if (inTrack.length === 0) continue;
+
+      const labels = TRACK_LABELS[track];
+      const regular = inTrack.filter(({ s }) => s.category !== "engage");
+      const engage = inTrack.filter(({ s }) => s.category === "engage");
+
+      html += `<section class="track-section">`;
+      html += `<p class="track-heading">${labels.heading}</p>`;
+      html += `<p class="track-sub">${labels.sub}</p>`;
+      for (const { s, i } of regular) html += renderHistoryCard(s, feedbackMap.get(i));
+      if (engage.length > 0) {
+        html += `<p class="engage-subheading">Go engage</p>`;
+        for (const { s, i } of engage) html += renderHistoryCard(s, feedbackMap.get(i));
       }
-      html += `</div>`;
-    });
+      html += `</section>`;
+    }
   }
 
   html += `</details></section>`;
@@ -140,7 +175,6 @@ export function renderDirectionPage(
     : null;
 
   let suggestionsHtml = "";
-  let engageHtml = "";
 
   if (!direction) {
     suggestionsHtml = `<p class="empty-state">No direction generated yet today. Check back after 3:30 AM CT.</p>`;
@@ -154,58 +188,51 @@ export function renderDirectionPage(
 
     suggestionsHtml += `<p class="lens">Today&rsquo;s lens: <strong>${esc(direction.focus_angle.replace(/-/g, " "))}</strong></p>`;
 
-    const regularSuggestions = suggestions.filter(s => s.category !== "engage");
-    const engageSuggestions = suggestions.filter(s => s.category === "engage");
+    const indexed = suggestions.map((s, i) => ({ s, i }));
 
-    regularSuggestions.forEach((s) => {
+    const renderCard = (s: Suggestion, originalIndex: number, isEngage: boolean): string => {
       const color = CATEGORY_COLORS[s.category] || "#6f6f6f";
-      const originalIndex = suggestions.indexOf(s);
       const existing = feedbackMap.get(originalIndex);
-      suggestionsHtml += `<div class="card">`;
-      suggestionsHtml += `<span class="pill" style="background:${color}">${esc(s.category)}</span>`;
-      suggestionsHtml += `<h2 class="card-title">${esc(s.title)}</h2>`;
-      suggestionsHtml += `<p class="card-body">${esc(s.body)}</p>`;
+      let html = `<div class="card${isEngage ? " engage-card" : ""}">`;
+      html += `<span class="pill" style="background:${color}">${esc(s.category)}</span>`;
+      html += `<h2 class="card-title">${esc(s.title)}</h2>`;
+      html += `<p class="card-body">${esc(s.body)}</p>`;
+      if (isEngage && s.source_url) {
+        html += `<p class="engage-link"><a href="${esc(s.source_url)}">Read &amp; reply &rarr;</a></p>`;
+      }
       if (s.source_refs?.length) {
-        suggestionsHtml += `<p class="refs">${renderSourceRefs(s.source_refs)}</p>`;
+        html += `<p class="refs">${renderSourceRefs(s.source_refs)}</p>`;
       }
       if (existing) {
-        suggestionsHtml += `<div class="feedback-done">You marked this: <strong>${esc(existing)}</strong></div>`;
+        html += `<div class="feedback-done">You marked this: <strong>${esc(existing)}</strong></div>`;
       } else {
-        suggestionsHtml += `<div class="feedback-row" data-direction="${direction.id}" data-index="${originalIndex}">`;
-        suggestionsHtml += feedbackButtons(["useful", "inspired", "done", "not_relevant"]);
-        suggestionsHtml += `<input type="text" placeholder="Optional note..." class="note-input">`;
-        suggestionsHtml += `</div>`;
+        const reactions = isEngage ? ["useful", "done", "not_relevant"] : ["useful", "inspired", "done", "not_relevant"];
+        html += `<div class="feedback-row" data-direction="${direction.id}" data-index="${originalIndex}">`;
+        html += feedbackButtons(reactions);
+        html += `<input type="text" placeholder="Optional note..." class="note-input">`;
+        html += `</div>`;
       }
-      suggestionsHtml += `</div>`;
-    });
+      html += `</div>`;
+      return html;
+    };
 
-    if (engageSuggestions.length > 0) {
-      engageHtml += `<section class="engage-section">`;
-      engageHtml += `<h2 class="section-heading">Go engage</h2>`;
-      for (const engageSuggestion of engageSuggestions) {
-        const engageIndex = suggestions.indexOf(engageSuggestion);
-        const existing = feedbackMap.get(engageIndex);
-        engageHtml += `<div class="card engage-card">`;
-        engageHtml += `<span class="pill" style="background:${CATEGORY_COLORS.engage}">${esc(engageSuggestion.category)}</span>`;
-        engageHtml += `<h2 class="card-title">${esc(engageSuggestion.title)}</h2>`;
-        engageHtml += `<p class="card-body">${esc(engageSuggestion.body)}</p>`;
-        if (engageSuggestion.source_url) {
-          engageHtml += `<p class="engage-link"><a href="${esc(engageSuggestion.source_url)}">Read &amp; reply &rarr;</a></p>`;
-        }
-        if (engageSuggestion.source_refs?.length) {
-          engageHtml += `<p class="refs">${renderSourceRefs(engageSuggestion.source_refs)}</p>`;
-        }
-        if (existing) {
-          engageHtml += `<div class="feedback-done">You marked this: <strong>${esc(existing)}</strong></div>`;
-        } else {
-          engageHtml += `<div class="feedback-row" data-direction="${direction.id}" data-index="${engageIndex}">`;
-          engageHtml += feedbackButtons(["useful", "done", "not_relevant"]);
-          engageHtml += `<input type="text" placeholder="Optional note..." class="note-input">`;
-          engageHtml += `</div>`;
-        }
-        engageHtml += `</div>`;
+    for (const track of TRACK_ORDER) {
+      const inTrack = indexed.filter(({ s }) => trackOf(s) === track);
+      if (inTrack.length === 0) continue;
+
+      const labels = TRACK_LABELS[track];
+      const regular = inTrack.filter(({ s }) => s.category !== "engage");
+      const engage = inTrack.filter(({ s }) => s.category === "engage");
+
+      suggestionsHtml += `<section class="track-section">`;
+      suggestionsHtml += `<h2 class="track-heading">${labels.heading}</h2>`;
+      suggestionsHtml += `<p class="track-sub">${labels.sub}</p>`;
+      for (const { s, i } of regular) suggestionsHtml += renderCard(s, i, false);
+      if (engage.length > 0) {
+        suggestionsHtml += `<p class="engage-subheading">Go engage</p>`;
+        for (const { s, i } of engage) suggestionsHtml += renderCard(s, i, true);
       }
-      engageHtml += `</section>`;
+      suggestionsHtml += `</section>`;
     }
   }
 
@@ -231,7 +258,6 @@ ${notice === "generating" ? `<div class="notice">New direction generating — re
   <div class="pause-ctrl">${pauseCtrl}</div>
 </div>
 ${suggestionsHtml}
-${engageHtml}
 ${song ? renderSongCard(song) : ""}
 ${historyHtml}
 <div class="footer">${generatedAt ? `Generated at ${generatedAt}` : "Daily Direction"} &middot; <a href="/">robin-cannon.dev</a>${avgTokens ? ` &middot; avg ~$${avgTokens.avgCostUsd.toFixed(4)}/run &middot; ${avgTokens.avgIn.toLocaleString()} in / ${avgTokens.avgOut.toLocaleString()} out tokens (${avgTokens.n} runs, 30d)` : ""}</div>

@@ -27,7 +27,11 @@ export function pickRandomAngle(): FocusAngle {
 export function buildPrompt(context: GatheredContext, angle: FocusAngle): { system: string; user: string } {
   const system = `You are generating daily suggestions for Robin Cannon — a product manager, writer, and technologist.
 
-Your job is to produce 2-3 specific, actionable suggestions for Robin's day. These should NOT be generic productivity advice. They should reference actual projects, writings, sources, and interests from the context provided.
+Robin's writing splits into two tracks that he wants kept distinct:
+- PROFESSIONAL — Signals (newsletter) + Field Notes (essays). PM, product, design systems, AI tooling, technology, culture-of-work. Sources: pm-blogs, design-tech, ai-news, ai-thoughts, culture pipelines.
+- FICTION — Shiny Toy Robots (sci-fi/cyberpunk world Static Drift) + Alternate Frequencies (poetry, flash, shorts). Sources: fiction pipeline.
+
+Your job is to produce a full day's direction split across BOTH tracks. Each track gets its own regular suggestions and its own engage suggestion. These should NOT be generic productivity advice. They should reference actual projects, writings, sources, and interests from the context provided.
 
 Key principles:
 - Be SPECIFIC. Name actual projects, articles, people, and ideas.
@@ -39,44 +43,48 @@ Key principles:
 - SUMMARISE BEFORE CONNECTING. Before proposing any connection between an external source and Robin's work or frameworks, internally ask: what is this source actually arguing (in one sentence)? What is Robin's work actually arguing (in one sentence)? Only propose the connection if those two summaries share substance — not just vocabulary. Discard matches that rely on shared words with different meanings.
 - INTERNAL vs EXTERNAL. Robin's own writings and vault pieces (marked [INTERNAL] in the context) are internal material — his own thinking, fiction, and essays. Digest snippets are external material — what he has been reading. These are distinct and should be treated as such.
 - CONNECT OUTWARD. Regular suggestions (non-engage) must bridge internal and external: take something from Robin's own work or vault and connect it to at least one external source from the digest, or vice versa. A suggestion that only references internal material with no external anchor is incomplete. A suggestion that only references external material with no internal hook misses the point. The engage suggestions handle direct outreach — regular suggestions handle the quieter work of letting external ideas fertilise Robin's own work and thinking.
+- TRACK PURITY. A "professional" suggestion must draw its external anchor from a non-fiction pipeline source (pm-blogs / design-tech / ai-news / ai-thoughts / culture) and connect to Robin's non-fiction writing or vault material. A "fiction" suggestion must draw its external anchor from the fiction pipeline (or a culture/non-fiction piece that genuinely speaks to craft, narrative, or world-building) and connect to Robin's fiction work or vault. Do NOT mix tracks.
 - SOURCE DIVERSITY. Each regular suggestion should reference a different external source — do not cite the same article or publication twice across suggestions. The digest covers 60+ sources across 6 pipelines; spread your attention.
 
-Today's focus lens: "${angle}" — ${ANGLE_DESCRIPTIONS[angle]}
+Today's focus lens (applied to BOTH tracks): "${angle}" — ${ANGLE_DESCRIPTIONS[angle]}
 
-Output ONLY a JSON array with this structure. The first 2-3 items are your regular suggestions. The FINAL 2 items should be "engage" suggestions — specific articles from the digest snippets that Robin should comment on, reply to, or engage with. Pick articles where Robin's perspective would add the most value to the conversation.
+Output ONLY a JSON array with the following items, in this order:
+1. Professional regular suggestion #1 (track: "professional", category: writing/learning/project/connection/creative)
+2. Professional regular suggestion #2 (track: "professional")
+3. Fiction regular suggestion #1 (track: "fiction")
+4. Fiction regular suggestion #2 (track: "fiction")
+5. Professional engage suggestion (track: "professional", category: "engage")
+6. Fiction engage suggestion (track: "fiction", category: "engage")
 
 For the engage suggestions:
 - Pick 2 DIFFERENT articles. Do not suggest the same article twice.
 - ONLY pick articles published within the last 7 days. Check the date shown in brackets. Do NOT pick old articles — engagement on stale content has low value.
-- Aim for category diversity: at most 1 of the 2 engage suggestions should be from the [fiction] pipeline. Prefer picking 1 from fiction and 1 from a non-fiction pipeline (ai-news, ai-thoughts, culture, design-tech, pm-blogs) where a good candidate exists.
+- The PROFESSIONAL engage must come from a non-fiction pipeline (ai-news, ai-thoughts, culture, design-tech, pm-blogs).
+- The FICTION engage must come from the fiction pipeline.
 - Engagement is not limited to replying in a comment section. It can also mean writing a response article, citing the piece in a LinkedIn post or thread, or responding publicly on X. Choose the form that best fits the content and the point Robin would make.
 - For [COMMENTABLE] articles, replying in the comments is the most direct option — suggest it.
 - For [NO COMMENTS] articles, suggest the most appropriate alternative: LinkedIn citation, a response post, or a public mention on X.
-- If only 1 article from the last 7 days is worth engaging with, include just 1 engage item.
-- If no articles from the last 7 days are worth engaging with, omit engage suggestions entirely.
+- If no article from the last 7 days is worth engaging with in a given track, OMIT that track's engage item entirely (return one engage instead of two, or zero).
 - For fiction snippets (insight begins with "A poem that", "A short story that", "A piece of flash fiction that"): frame the engagement as a writer, not an analyst. Comment on what resonated, a craft observation, or a thematic connection to Robin's own recent work (use Robin's recent writings in context). Do not look for an argument to rebut.
 - VARIETY: Some snippets are marked [RECENTLY RECOMMENDED]. These sources were suggested for engagement within the last 3 days. Strongly prefer other sources — the digest covers 60+ sites and variety matters. Only pick a [RECENTLY RECOMMENDED] source if it is genuinely exceptional and no other good candidate exists from the last 7 days.
+
+Every item MUST include a "track" field set to either "professional" or "fiction".
 
 [
   {
     "title": "Short imperative title",
     "body": "2-3 sentence explanation with specific references",
     "source_refs": ["Article Title|https://example.com/article", "Robin's own writing (no URL)"],
-    "category": "writing" | "learning" | "project" | "connection" | "creative"
+    "category": "writing" | "learning" | "project" | "connection" | "creative",
+    "track": "professional" | "fiction"
   },
   {
     "title": "Reply to [article title]",
     "body": "Why this article deserves Robin's engagement and what angle to take",
     "source_refs": ["Article Title|https://example.com/article", "Source Name"],
     "source_url": "URL of the article",
-    "category": "engage"
-  },
-  {
-    "title": "Reply to [different article title]",
-    "body": "Why this article deserves Robin's engagement and what angle to take",
-    "source_refs": ["Article Title|https://example.com/article", "Source Name"],
-    "source_url": "URL of the article",
-    "category": "engage"
+    "category": "engage",
+    "track": "professional" | "fiction"
   }
 ]
 
