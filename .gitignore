@@ -7,3 +7,4 @@ data/
 efforts/*/flow-state.yaml
 efforts/*/generations/
 .flow-index/
+evals/datasets/*.jsonl
