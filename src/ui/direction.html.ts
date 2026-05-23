@@ -20,8 +20,8 @@ const PAGE_CSS = `${SHARED_CSS}
 .lens{color:#525252;font-size:.875rem;margin:.5rem 0 .75rem}
 .track-section{margin:1.5rem -1rem 0;padding:1rem 1rem .25rem}
 .track-section:first-of-type{margin-top:.5rem}
-.track-section.track-professional{background:#eef3f7}
-.track-section.track-fiction{background:#f7f3ee}
+.track-section.track-professional{background:#f2f4f8}
+.track-section.track-fiction{background:#f7f3f2}
 .track-heading{font-size:.8125rem;font-weight:600;color:#161616;margin:0 0 .25rem;text-transform:uppercase;letter-spacing:.06em;font-family:'IBM Plex Mono',monospace}
 .track-sub{color:#525252;font-size:.75rem;margin:0 0 .875rem}
 .engage-subheading{font-size:.75rem;font-weight:600;color:#525252;margin:1rem 0 .5rem;text-transform:uppercase;letter-spacing:.06em;font-family:'IBM Plex Mono',monospace}
