@@ -18,10 +18,12 @@ export type TokenAvg = { avgIn: number; avgOut: number; avgCostUsd: number; n: n
 const PAGE_CSS = `${SHARED_CSS}
 .date{color:#525252;font-size:.875rem;margin-top:0;margin-bottom:1rem}
 .lens{color:#525252;font-size:.875rem;margin:.5rem 0 .75rem}
-.track-section{margin-top:1.5rem}
-.track-section:first-of-type{margin-top:1rem}
+.track-section{margin:1.5rem -1rem 0;padding:1rem 1rem .25rem}
+.track-section:first-of-type{margin-top:.5rem}
+.track-section.track-professional{background:#eef3f7}
+.track-section.track-fiction{background:#f7f3ee}
 .track-heading{font-size:.8125rem;font-weight:600;color:#161616;margin:0 0 .25rem;text-transform:uppercase;letter-spacing:.06em;font-family:'IBM Plex Mono',monospace}
-.track-sub{color:#6f6f6f;font-size:.75rem;margin:0 0 .875rem;padding-bottom:.5rem;border-bottom:1px solid #e0e0e0}
+.track-sub{color:#525252;font-size:.75rem;margin:0 0 .875rem}
 .engage-subheading{font-size:.75rem;font-weight:600;color:#525252;margin:1rem 0 .5rem;text-transform:uppercase;letter-spacing:.06em;font-family:'IBM Plex Mono',monospace}
 .card{background:#f4f4f4;border-left:3px solid #0f62fe;padding:1rem 1.25rem;margin-bottom:1rem}
 .card-title{font-size:.9375rem;font-weight:600;margin:.375rem 0 .25rem}
@@ -112,7 +114,7 @@ export function renderHistorySection(
       const regular = inTrack.filter(({ s }) => s.category !== "engage");
       const engage = inTrack.filter(({ s }) => s.category === "engage");
 
-      html += `<section class="track-section">`;
+      html += `<section class="track-section track-${track}">`;
       html += `<p class="track-heading">${labels.heading}</p>`;
       html += `<p class="track-sub">${labels.sub}</p>`;
       for (const { s, i } of regular) html += renderHistoryCard(s, feedbackMap.get(i));
@@ -224,7 +226,7 @@ export function renderDirectionPage(
       const regular = inTrack.filter(({ s }) => s.category !== "engage");
       const engage = inTrack.filter(({ s }) => s.category === "engage");
 
-      suggestionsHtml += `<section class="track-section">`;
+      suggestionsHtml += `<section class="track-section track-${track}">`;
       suggestionsHtml += `<h2 class="track-heading">${labels.heading}</h2>`;
       suggestionsHtml += `<p class="track-sub">${labels.sub}</p>`;
       for (const { s, i } of regular) suggestionsHtml += renderCard(s, i, false);

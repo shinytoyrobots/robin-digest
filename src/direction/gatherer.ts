@@ -290,6 +290,8 @@ function fetchRecentDigestSnippets(): GatheredContext["recentDigestSnippets"] {
     const db = getDb();
     // Select up to 3 snippets per pipeline to ensure all 6 categories are represented,
     // rather than taking the 15 most recent globally (which lets active pipelines crowd out quieter ones).
+    // Fiction gets a double allocation (6) because the fiction track needs more external material
+    // to bridge into Robin's fiction work — five non-fiction pipelines crowd out a single fiction pipeline.
     const rows = db
       .prepare(
         `WITH ranked AS (
@@ -302,7 +304,7 @@ function fetchRecentDigestSnippets(): GatheredContext["recentDigestSnippets"] {
          )
          SELECT key_insight, source_name, source_url, published_at, pipeline_id
          FROM ranked
-         WHERE rn <= 3
+         WHERE rn <= 3 OR (pipeline_id = 'fiction' AND rn <= 6)
          ORDER BY pipeline_id, rn`
       )
       .all() as { key_insight: string; source_name: string; source_url: string; published_at: string | null; pipeline_id: string }[];
