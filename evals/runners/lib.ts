@@ -13,6 +13,8 @@ export interface Suggestion {
   source_url?: string;
   category: string;
   track?: string;
+  draft?: string;    // engage-only: paste-ready comment scaffold
+  channel?: string;  // engage-only: comments | linkedin | x | response-post
 }
 
 export interface DirectionRow {
@@ -55,4 +57,8 @@ export function loadJsonl(path: string): DirectionRow[] {
 
 export function regularSuggestions(d: DirectionRow): Suggestion[] {
   return d.suggestions.filter(s => s.category !== "engage");
+}
+
+export function engageSuggestions(d: DirectionRow): Suggestion[] {
+  return d.suggestions.filter(s => s.category === "engage");
 }
