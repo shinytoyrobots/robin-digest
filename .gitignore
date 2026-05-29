@@ -3,6 +3,10 @@ dist/
 data/
 .env
 
+# Claude Code local tooling artifacts
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+
 # flow effort working artifacts
 efforts/*/flow-state.yaml
 efforts/*/generations/
