@@ -1,4 +1,5 @@
 import type { GatheredContext } from "./gatherer.js";
+import { VOICE_SPEC_PROFESSIONAL, VOICE_SPEC_FICTION } from "./voice-specs.js";
 
 export const FOCUS_ANGLES = [
   "creative-writing",
@@ -116,14 +117,10 @@ No markdown, no preamble, no explanation — just the JSON array.`;
 
   const parts: string[] = [];
 
-  if (context.voiceGuideProfessional) {
-    parts.push("## VOICE GUIDE — Professional track (apply to professional-track engage drafts: Field Notes / Signals)");
-    parts.push(context.voiceGuideProfessional);
-  }
-  if (context.voiceGuideFiction) {
-    parts.push("\n## VOICE GUIDE — Fiction track (apply to fiction-track engage drafts: Shiny Toy Robots / Alternate Frequencies)");
-    parts.push(context.voiceGuideFiction);
-  }
+  parts.push("## VOICE GUIDE — Professional track (apply to professional-track engage drafts: Field Notes / Signals)");
+  parts.push(VOICE_SPEC_PROFESSIONAL);
+  parts.push("\n## VOICE GUIDE — Fiction track (apply to fiction-track engage drafts: Shiny Toy Robots / Alternate Frequencies)");
+  parts.push(VOICE_SPEC_FICTION);
 
   if (context.recentWritings.length > 0) {
     const isVault = (w: { url: string }) => w.url.startsWith("vault:");
