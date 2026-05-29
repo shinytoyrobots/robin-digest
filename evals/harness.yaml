@@ -1,5 +1,5 @@
 schema-version: "1.0"
-suite-version: "0.3.0"
+suite-version: "0.4.0"
 
 # This effort overrides the default 6 dimensions. See spec/constitution.md
 # "Dimension defaults" section for rationale.
@@ -32,27 +32,31 @@ dimensions:
       and an external anchor (URL). Adversarial LLM-judge mode (SR-003) not yet
       implemented in v0.2.0; tracked in spec/spec.md "Open ambiguities".
 
-  # ── v0.3.0 engage dimensions — DECLARED but PENDING ─────────────────
-  # draft/channel fields do not exist on historical daily_directions rows;
-  # introduced by the v1 change (HANDOFF-engagement-comments.md). Datasets
-  # populate only after v1 ships and production emits draft/channel. Zero
-  # live weight until then (see weights-pending). constitution.md unchanged.
+  # ── v0.4.0 engage-trust-compliance — ACTIVE (deterministic) ─────────
+  # Synthetic seed datasets (committed; no production content). Carries zero
+  # AGGREGATE weight for now (rebalance deferred until the LLM-judge engage
+  # dims also come online — a deliberate HITL /flow-spec decision); it still
+  # scores and flags regressions on its own thresholds. constitution.md
+  # "active dimensions" list (weighted) stays accurate.
   - name: engage-trust-compliance
     graders: [engage-trust-compliance]
-    datasets: []            # pending: populated once v1 emits draft/channel
-    threshold: null         # TBD via /flow-eval after datasets exist
-    threshold-adversarial: null
+    datasets:
+      - engage-trust-compliance-real-v1
+      - engage-trust-compliance-adv-v1
+    threshold: 1.0               # compliance-rate on real (hard invariant)
+    threshold-adversarial: 1.0   # detection-rate on adv (must catch all seeded violations)
     grader-type: deterministic
-    runner: null            # to be authored (deterministic structural checks)
-    mapping-pending: true
-    status: pending-implementation
-    weight-pending: true
+    runner: evals/runners/engage-trust-compliance.ts
+    weight-pending: true         # active + scoring; aggregate weight rebalanced later
     description: >-
       Deterministic structural checks on engage drafts (category == "engage").
       Covers SR-005 (no Robin-owned URL, no ask/CTA, no credential-preface),
       SR-009 (channel matches source commentability), and the structural part
-      of SR-010 (exactly one draft per engage item; <=1 engage item per track).
+      of SR-010 (one non-empty draft per engage item; <=1 engage item per track).
 
+  # ── v0.3.0 engage dimensions — DECLARED but PENDING (LLM-judge) ─────
+  # draft/channel exist in production now, but these need enough drafts to
+  # calibrate the judge + build a holdout. Datasets pending; zero live weight.
   - name: engage-substance
     graders: [engage-substance]
     datasets: []
@@ -104,11 +108,12 @@ weights:
   source-diversity: 0.50
   internal-external-bridging: 0.50
 
-# Pending dimensions carry zero live weight until datasets exist; rebalance
-# via /flow-eval once v1 production draft data is available (HITL per
+# engage-trust-compliance is ACTIVE (scoring) but unweighted for now; the
+# three LLM-judge dims are still pending datasets. All engage dims carry zero
+# aggregate weight until a deliberate rebalance (HITL /flow-spec, per
 # constitution: weight change after grading → preference-articulator).
 weights-pending:
-  engage-trust-compliance: 0.0
+  engage-trust-compliance: 0.0   # active grader; aggregate weight rebalance pending
   engage-substance: 0.0
   engage-open-hand: 0.0
   voice-authenticity: 0.0
@@ -137,11 +142,10 @@ mappings:
     note: Specific anchor to a named detail; generic praise is a violation. LLM-judge.
   SR-005:
     grader: engage-trust-compliance
-    datasets: []
-    threshold: null
-    mapping-pending: true
-    status: pending-implementation
-    note: Deterministic — no Robin-owned URL/self-link, no ask/CTA, no credential-preface. See spec OA-3.
+    datasets: [engage-trust-compliance-real-v1, engage-trust-compliance-adv-v1]
+    threshold: 1.0
+    status: active
+    note: Deterministic — no Robin-owned URL/self-link, no ask/CTA, no credential-preface. OA-3 resolved (robin-cannon.com + .dev).
   SR-006:
     grader: engage-open-hand
     datasets: []
@@ -165,25 +169,26 @@ mappings:
     note: LLM-judge for voice. Automation ceiling is a process invariant (no auto-post path), not row-scored.
   SR-009:
     grader: engage-trust-compliance
-    datasets: []
-    threshold: null
-    mapping-pending: true
-    status: pending-implementation
-    note: Deterministic given commentable flag — [COMMENTABLE]=>comments; [NO COMMENTS]=>{linkedin,x,response-post}. See spec OA-4.
+    datasets: [engage-trust-compliance-real-v1, engage-trust-compliance-adv-v1]
+    threshold: 1.0
+    status: active
+    note: Deterministic — [COMMENTABLE]=>comments; [NO COMMENTS]=>{linkedin,x,response-post}. OA-4 resolved (commentability re-derived from source_url).
   SR-010:
     grader: engage-trust-compliance
     grader-secondary: engage-substance
-    datasets: []
-    threshold: null
-    mapping-pending: true
-    status: pending-implementation
-    note: Deterministic — one draft/item, <=1 engage/track. LLM-judge bar (engage-substance) partially deferred. See spec OA-5.
+    datasets: [engage-trust-compliance-real-v1, engage-trust-compliance-adv-v1]
+    threshold: 1.0
+    status: partially-active
+    note: Structural part ACTIVE (one draft/item, <=1 engage/track). LLM-judge "bar" component (engage-substance) deferred — needs gatherer-context persistence; see spec OA-5.
 
 goodhart-mitigation:
-  adversarial-required-for: [source-diversity, internal-external-bridging]
+  adversarial-required-for: [source-diversity, internal-external-bridging, engage-trust-compliance]
   rotation-period-days: 90
   score-climb-flag-threshold: 0.30
   real-dataset-floor-pct: 50  # adversarial datasets must be ≥50% real failure modes (constitution rule 3)
+  # NOTE: engage-trust-compliance-adv-v1 is currently 100% SYNTHETIC — the
+  # feature has no production failure history yet. Backfill to >=50% real
+  # production misfires (target -v2) once observed. Tracked below.
 
 metastable:
   # Metastable detection is not meaningful for this measurement-only effort.
@@ -257,3 +262,17 @@ baseline-2026-05-22:
     mean: 0.600
     threshold-adversarial: 0.60
     result: PASS-AT-FLOOR
+
+baseline-2026-05-28:
+  # engage-trust-compliance bootstrap (suite v0.4.0). Synthetic seeds.
+  engage-trust-compliance-real-v1:
+    n: 5
+    compliance-rate: 1.000
+    threshold: 1.0
+    result: PASS
+  engage-trust-compliance-adv-v1:
+    n: 7
+    detection-rate: 1.000
+    threshold-adversarial: 1.0
+    result: PASS
+    note: 100% synthetic single-violation seeds (self-link, self-promo, credential-preface, channel-mismatch, channel-invalid, multiple-engage, empty-draft). Backfill >=50% real once production misfires observed.

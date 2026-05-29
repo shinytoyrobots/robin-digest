@@ -12,3 +12,6 @@ efforts/*/flow-state.yaml
 efforts/*/generations/
 .flow-index/
 evals/datasets/*.jsonl
+# Exception: synthetic eval fixtures (no production content) are version-controlled
+!evals/datasets/engage-trust-compliance-real-v1.jsonl
+!evals/datasets/engage-trust-compliance-adv-v1.jsonl
