@@ -1,5 +1,5 @@
 schema-version: "1.0"
-suite-version: "0.2.0"
+suite-version: "0.3.0"
 
 # This effort overrides the default 6 dimensions. See spec/constitution.md
 # "Dimension defaults" section for rationale.
@@ -32,9 +32,86 @@ dimensions:
       and an external anchor (URL). Adversarial LLM-judge mode (SR-003) not yet
       implemented in v0.2.0; tracked in spec/spec.md "Open ambiguities".
 
+  # ── v0.3.0 engage dimensions — DECLARED but PENDING ─────────────────
+  # draft/channel fields do not exist on historical daily_directions rows;
+  # introduced by the v1 change (HANDOFF-engagement-comments.md). Datasets
+  # populate only after v1 ships and production emits draft/channel. Zero
+  # live weight until then (see weights-pending). constitution.md unchanged.
+  - name: engage-trust-compliance
+    graders: [engage-trust-compliance]
+    datasets: []            # pending: populated once v1 emits draft/channel
+    threshold: null         # TBD via /flow-eval after datasets exist
+    threshold-adversarial: null
+    grader-type: deterministic
+    runner: null            # to be authored (deterministic structural checks)
+    mapping-pending: true
+    status: pending-implementation
+    weight-pending: true
+    description: >-
+      Deterministic structural checks on engage drafts (category == "engage").
+      Covers SR-005 (no Robin-owned URL, no ask/CTA, no credential-preface),
+      SR-009 (channel matches source commentability), and the structural part
+      of SR-010 (exactly one draft per engage item; <=1 engage item per track).
+
+  - name: engage-substance
+    graders: [engage-substance]
+    datasets: []
+    threshold: null
+    threshold-adversarial: null
+    grader-type: llm-judge
+    runner: null
+    mapping-pending: true
+    status: pending-implementation
+    weight-pending: true
+    description: >-
+      LLM-judge of engage-draft substance. Covers SR-004 (specific anchor to a
+      named detail; generic praise is a violation) and SR-007 (carries a delta,
+      extends the thread; rejects sycophancy and eristic point-scoring). Also
+      receives the LLM-judge "Letters-Page bar" component of SR-010.
+
+  - name: engage-open-hand
+    graders: [engage-open-hand]
+    datasets: []
+    threshold: null
+    threshold-adversarial: null
+    grader-type: hybrid
+    runner: null
+    mapping-pending: true
+    status: pending-implementation
+    weight-pending: true
+    description: >-
+      Hybrid grader for SR-006: deterministic terminal-question / explicit
+      unresolved-tension signal as a fast positive, LLM-judge adjudicating
+      "opens vs. closes" where the terminal signal is absent or ambiguous.
+
+  - name: voice-authenticity
+    graders: [voice-authenticity]
+    datasets: []
+    threshold: null
+    threshold-adversarial: null
+    grader-type: llm-judge
+    runner: null
+    mapping-pending: true
+    status: pending-implementation
+    weight-pending: true
+    description: >-
+      LLM-judge for SR-008 voice clause: the draft reads as a ready-to-edit
+      scaffold in Robin's voice, not corporate/AI boilerplate. The SR-008
+      automation-ceiling clause is a PROCESS INVARIANT (no auto-post code path)
+      verified as a system property, not by scoring direction rows.
+
 weights:
   source-diversity: 0.50
   internal-external-bridging: 0.50
+
+# Pending dimensions carry zero live weight until datasets exist; rebalance
+# via /flow-eval once v1 production draft data is available (HITL per
+# constitution: weight change after grading → preference-articulator).
+weights-pending:
+  engage-trust-compliance: 0.0
+  engage-substance: 0.0
+  engage-open-hand: 0.0
+  voice-authenticity: 0.0
 
 mappings:
   SR-001:
@@ -50,6 +127,57 @@ mappings:
     grader-mode: adversarial
     datasets: [internal-external-bridging-adv-v1]
     threshold: 0.80
+  # ── v0.3.0 engage SRs — mapping-pending (graders/datasets pending v1) ──
+  SR-004:
+    grader: engage-substance
+    datasets: []
+    threshold: null
+    mapping-pending: true
+    status: pending-implementation
+    note: Specific anchor to a named detail; generic praise is a violation. LLM-judge.
+  SR-005:
+    grader: engage-trust-compliance
+    datasets: []
+    threshold: null
+    mapping-pending: true
+    status: pending-implementation
+    note: Deterministic — no Robin-owned URL/self-link, no ask/CTA, no credential-preface. See spec OA-3.
+  SR-006:
+    grader: engage-open-hand
+    datasets: []
+    threshold: null
+    mapping-pending: true
+    status: pending-implementation
+    note: Hybrid — deterministic terminal-question signal + LLM-judge opens-vs-closes.
+  SR-007:
+    grader: engage-substance
+    datasets: []
+    threshold: null
+    mapping-pending: true
+    status: pending-implementation
+    note: LLM-judge — carries a delta and extends the thread; non-sycophantic, non-eristic.
+  SR-008:
+    grader: voice-authenticity
+    datasets: []
+    threshold: null
+    mapping-pending: true
+    status: pending-implementation
+    note: LLM-judge for voice. Automation ceiling is a process invariant (no auto-post path), not row-scored.
+  SR-009:
+    grader: engage-trust-compliance
+    datasets: []
+    threshold: null
+    mapping-pending: true
+    status: pending-implementation
+    note: Deterministic given commentable flag — [COMMENTABLE]=>comments; [NO COMMENTS]=>{linkedin,x,response-post}. See spec OA-4.
+  SR-010:
+    grader: engage-trust-compliance
+    grader-secondary: engage-substance
+    datasets: []
+    threshold: null
+    mapping-pending: true
+    status: pending-implementation
+    note: Deterministic — one draft/item, <=1 engage/track. LLM-judge bar (engage-substance) partially deferred. See spec OA-5.
 
 goodhart-mitigation:
   adversarial-required-for: [source-diversity, internal-external-bridging]
@@ -92,6 +220,21 @@ notes:
     adv-mean as no-regression floors. v0.3.0 should persist gatherer context
     per direction so adversarials become re-runnable probes that exercise
     the current prompt against historically-difficult inputs.
+
+  engage-dimensions-pending: >-
+    engage-trust-compliance, engage-substance, engage-open-hand and
+    voice-authenticity are declared in spec v0.3.0 (SR-004..010) but pending
+    implementation: the draft/channel fields do not exist on historical
+    daily_directions rows. Real datasets populate only after the v1 prompt+code
+    change ships and production emits draft/channel data. Until then these
+    dimensions carry zero live weight and do not affect the source-diversity /
+    internal-external-bridging scores or weights.
+
+  engage-adversarial-backfill-obligation: >-
+    Per constitution Prohibition 3, adversarial datasets for the engage
+    dimensions start synthetic and MUST be backfilled to >=50% real production
+    failure modes once v1 drafts exist in production. When the engage dimensions
+    leave pending status, add them to goodhart-mitigation.adversarial-required-for.
 
 baseline-2026-05-22:
   source-diversity-real-v1:

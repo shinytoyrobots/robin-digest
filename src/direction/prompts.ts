@@ -57,17 +57,38 @@ Output ONLY a JSON array with the following items, in this order:
 5. Professional engage suggestion (track: "professional", category: "engage")
 6. Fiction engage suggestion (track: "fiction", category: "engage")
 
-For the engage suggestions:
-- Pick 2 DIFFERENT articles. Do not suggest the same article twice.
-- ONLY pick articles published within the last 7 days. Check the date shown in brackets. Do NOT pick old articles — engagement on stale content has low value.
-- The PROFESSIONAL engage must come from a non-fiction pipeline (ai-news, ai-thoughts, culture, design-tech, pm-blogs).
-- The FICTION engage must come from the fiction pipeline.
-- Engagement is not limited to replying in a comment section. It can also mean writing a response article, citing the piece in a LinkedIn post or thread, or responding publicly on X. Choose the form that best fits the content and the point Robin would make.
-- For [COMMENTABLE] articles, replying in the comments is the most direct option — suggest it.
-- For [NO COMMENTS] articles, suggest the most appropriate alternative: LinkedIn citation, a response post, or a public mention on X.
-- If no article from the last 7 days is worth engaging with in a given track, OMIT that track's engage item entirely (return one engage instead of two, or zero).
-- For fiction snippets (insight begins with "A poem that", "A short story that", "A piece of flash fiction that"): frame the engagement as a writer, not an analyst. Comment on what resonated, a craft observation, or a thematic connection to Robin's own recent work (use Robin's recent writings in context). Do not look for an argument to rebut.
-- VARIETY: Some snippets are marked [RECENTLY RECOMMENDED]. These sources were suggested for engagement within the last 3 days. Strongly prefer other sources — the digest covers 60+ sites and variety matters. Only pick a [RECENTLY RECOMMENDED] source if it is genuinely exceptional and no other good candidate exists from the last 7 days.
+For the engage suggestions — these are the most important items. Each one MUST produce a PASTE-READY DRAFT COMMENT in the "draft" field, not advice about commenting. The draft is a starting scaffold Robin will edit into his own voice — never final, never auto-posted.
+
+Selection:
+- At most one PROFESSIONAL engage (from a non-fiction pipeline: ai-news, ai-thoughts, culture, design-tech, pm-blogs) and at most one FICTION engage (from the fiction pipeline). Never the same article twice.
+- ONLY articles published within the last 7 days (check the bracketed date). No stale content.
+- Some snippets are marked [RECENTLY RECOMMENDED] (suggested in the last 3 days). Strongly prefer other sources — the digest covers 60+ sites and variety matters.
+
+QUALITY GATE — apply BEFORE drafting; zero beats mediocre:
+- THE LETTERS-PAGE BAR: only produce an engage item if the comment would earn a slot on a curated letters page — specific, value-adding, worth a stranger's time. If nothing in a track clears the bar, OMIT that track's engage item. Returning NO engage item is correct and preferred over a weak one (you may return one engage item, or zero).
+- ONE draft per item — never a menu of options.
+- REJECT a draft that is net-agreement with no added information or tension (sycophancy), OR whose move is to correct/outperform the author rather than extend the conversation (point-scoring). Every comment must carry a delta AND extend the thread.
+
+THE COMMENT RECIPE — every "draft" must:
+1. ANCHOR TO A SPECIFIC DETAIL from the piece (quote or name an argument, example, line, or figure). This proves Robin read it. NEVER use generic praise ("Great post", "So true"). If you cannot find a specific anchor, the item fails the gate — omit it.
+2. ADD VALUE ONLY ROBIN COULD — a perspective, counter-example, evidence, or experience; be a PEER contributing, not a fan. Where the piece holds a productive internal tension (a claim its own evidence undercuts; two points that pull apart), prefer to NAME THE JUXTAPOSITION AND ASK THE OPEN QUESTION rather than asserting a correction.
+3. WRITE FOR THE LURKING READER, not to flatter the author — leave the thread better for the next person who reads it.
+4. END WITH AN OPEN HAND — close on an unresolved tension or a genuine question, not a verdict. Do not try to have the last word.
+5. Sound like Robin speaking — drop the corporate register; it reads as insincere and AI-generated.
+Keep drafts to 3-5 sentences (briefer for a LinkedIn comment; longer only when complexity genuinely warrants).
+
+TRUST RULES (non-negotiable):
+- Lead with value to the author and community. Test: "Would Robin write this if it were never reciprocated?" If no, omit it.
+- NO ASK and NO LINK to Robin's work in the draft. No CTA. Link-dropping is forbidden — return traffic comes only from a name and a thought worth following.
+- SHOW, DON'T CREDENTIAL: expertise must be inferable from what the comment NOTICES. Never write "As a PM" / "As someone who works in X".
+- Where a connection to something Robin has ALREADY written is genuine, the draft may reference that IDEA in passing as a peer's perspective — but must NOT paste a URL or say "check out my piece".
+
+CHANNEL — set the "channel" field:
+- [COMMENTABLE] blog/Substack -> "comments": post directly in the comment section.
+- [NO COMMENTS], or a point that deserves Robin's own audience -> "linkedin": a short post crediting the author and piece by name, extracting the idea and adding Robin's take.
+- brief public mention -> "x"; a point too big for a comment -> "response-post".
+
+FICTION engage: respond AS A WRITER, not an analyst — comment on what resonated, a craft observation, or a thematic echo of Robin's own recent work. Never hunt for an argument to rebut.
 
 Every item MUST include a "track" field set to either "professional" or "fiction".
 
@@ -81,7 +102,9 @@ Every item MUST include a "track" field set to either "professional" or "fiction
   },
   {
     "title": "Reply to [article title]",
-    "body": "Why this article deserves Robin's engagement and what angle to take",
+    "body": "Rationale: the specific value this comment gives the AUTHOR and the OTHER READERS, and why this angle (1-2 sentences)",
+    "draft": "The paste-ready comment (3-5 sentences) following the recipe — anchor to a specific detail, add Robin-only value, serve other readers, end on an opening, in Robin's voice. No link, no ask, no credential.",
+    "channel": "comments" | "linkedin" | "x" | "response-post",
     "source_refs": ["Article Title|https://example.com/article", "Source Name"],
     "source_url": "URL of the article",
     "category": "engage",

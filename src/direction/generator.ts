@@ -13,6 +13,10 @@ export interface Suggestion {
   source_url?: string;
   category: string;
   track: Track;
+  /** Engage-only: paste-ready draft comment (a scaffold to edit in Robin's voice, never auto-posted). */
+  draft?: string;
+  /** Engage-only: where the comment lands — "comments" | "linkedin" | "x" | "response-post". */
+  channel?: string;
 }
 
 function parseResponse(raw: string): Suggestion[] {
@@ -31,6 +35,8 @@ function parseResponse(raw: string): Suggestion[] {
       source_url: item.source_url ? String(item.source_url) : undefined,
       category: String(item.category || "creative"),
       track,
+      draft: item.draft ? String(item.draft) : undefined,
+      channel: item.channel ? String(item.channel) : undefined,
     };
   });
 }
