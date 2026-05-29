@@ -43,11 +43,13 @@ h3.card-title{font-size:.875rem}
 .engage-link{margin-top:.5rem}
 .engage-link a{color:#e11d48;font-weight:500;text-decoration:none;font-size:.875rem}
 .engage-link a:hover{text-decoration:underline}
-.channel-label{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:.6875rem;color:#e11d48;text-transform:uppercase;letter-spacing:.04em;margin:.625rem 0 .25rem}
-.engage-draft{position:relative;background:#fff;border:1px solid #e0e0e0;border-left:3px solid #e11d48;padding:.75rem .875rem;margin:.25rem 0 .375rem}
-.draft-text{white-space:pre-wrap;font-size:.8125rem;color:#161616;line-height:1.5;padding-right:3.5rem}
-.copy-btn{position:absolute;top:.5rem;right:.5rem;background:#fff;border:1px solid #8d8d8d;border-radius:0;padding:2px 8px;font-size:.6875rem;font-family:'IBM Plex Mono',monospace;cursor:pointer}
-.copy-btn:hover{background:#e0e0e0;border-color:#161616}
+.channel-label{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:.6875rem;color:#e11d48;text-transform:uppercase;letter-spacing:.04em;margin:.625rem 0 .375rem}
+.engage-draft{position:relative;background:#fff;margin:.25rem -1.25rem .5rem;padding:.875rem 1.25rem;border-top:1px solid #e0e0e0;border-bottom:1px solid #e0e0e0}
+.draft-text{white-space:pre-wrap;font-size:.8125rem;color:#161616;line-height:1.55;padding-right:1.75rem}
+.copy-btn{position:absolute;top:.625rem;right:.875rem;background:none;border:none;padding:4px;cursor:pointer;color:#6f6f6f;line-height:0;border-radius:2px}
+.copy-btn:hover{background:#e0e0e0;color:#161616}
+.copy-btn.copied{color:#198038}
+.copy-btn svg{display:block;width:16px;height:16px;fill:currentColor}
 .draft-hint{font-size:.6875rem;color:#6f6f6f;margin:0 0 .5rem;font-style:italic}
 .history{margin-top:2rem;border-top:1px solid #e0e0e0;padding-top:1rem}
 .model-select{border:1px solid #8d8d8d;border-radius:0;padding:4px 8px;font-size:.75rem;font-family:'IBM Plex Sans',sans-serif;background:#fff;cursor:pointer}
@@ -67,6 +69,8 @@ h3.card-title{font-size:.875rem}
 `;
 
 
+const COPY_ICON = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M28 10v18H10V10h18m0-2H10a2 2 0 0 0-2 2v18a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2Z"/><path d="M4 18H2V4a2 2 0 0 1 2-2h14v2H4Z"/></svg>`;
+const CHECK_ICON = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M13 24l-9-9 1.41-1.41L13 21.17 26.59 7.59 28 9 13 24z"/></svg>`;
 const CHANNEL_LABELS: Record<string, string> = {
   comments: "&rarr; Post as a comment",
   linkedin: "&rarr; LinkedIn post",
@@ -217,7 +221,7 @@ export function renderDirectionPage(
       if (isEngage && s.draft) {
         const channelLabel = s.channel ? CHANNEL_LABELS[s.channel] : undefined;
         if (channelLabel) html += `<div class="channel-label">${channelLabel}</div>`;
-        html += `<div class="engage-draft"><div class="draft-text">${esc(s.draft)}</div><button type="button" class="copy-btn" aria-label="Copy draft">Copy</button></div>`;
+        html += `<div class="engage-draft"><div class="draft-text">${esc(s.draft)}</div><button type="button" class="copy-btn" aria-label="Copy draft" title="Copy">${COPY_ICON}</button></div>`;
         html += `<p class="draft-hint">Draft scaffold &mdash; edit into your own voice before posting.</p>`;
       }
       if (isEngage && s.source_url) {
@@ -319,11 +323,18 @@ document.querySelectorAll('.feedback-row button').forEach(btn => {
   });
 });
 document.querySelectorAll('.copy-btn').forEach(btn => {
+  const original = btn.innerHTML;
   btn.addEventListener('click', function() {
     const txt = this.parentElement.querySelector('.draft-text').textContent;
     navigator.clipboard.writeText(txt).then(() => {
-      this.textContent = 'Copied';
-      setTimeout(() => { this.textContent = 'Copy'; }, 1500);
+      this.innerHTML = ${JSON.stringify(CHECK_ICON)};
+      this.classList.add('copied');
+      this.setAttribute('aria-label', 'Copied');
+      setTimeout(() => {
+        this.innerHTML = original;
+        this.classList.remove('copied');
+        this.setAttribute('aria-label', 'Copy draft');
+      }, 1500);
     }).catch(() => {});
   });
 });

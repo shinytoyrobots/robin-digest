@@ -11,6 +11,8 @@ export interface GatheredContext {
   recentFeedback: { reaction: string; suggestion_title: string; note?: string }[];
   missionStatement: string | null;
   recentlyRecommendedHosts: Set<string>;
+  voiceGuideProfessional: string | null;
+  voiceGuideFiction: string | null;
 }
 
 const SECTION_FEEDS: { url: string; category: "fiction" | "non-fiction" }[] = [
@@ -43,6 +45,10 @@ const VAULT_SKIP = new Set(["-Series Overview-.md", "README.md", "New Drama. Old
 
 const VAULT_FICTION_COUNT = 4;
 const VAULT_NONFICTION_COUNT = 4;
+
+// Voice & tone guides (evergreen vault notes) — applied to engage-draft voice per track.
+const VOICE_GUIDE_PROFESSIONAL = "Non-Fiction/Professional voice and tone guide.md";
+const VOICE_GUIDE_FICTION = "Fiction/StaticDrift/GlobalBible/Voice and tone guide.md";
 
 // Domains where articles can be replied to (e.g. via Substack comments)
 const COMMENTABLE_DOMAINS = ["substack.com"];
@@ -412,11 +418,29 @@ function fetchMissionStatement(): string | null {
   }
 }
 
+/** Fetch the two voice & tone guides from the vault repo. Graceful: null on failure. */
+async function fetchVoiceGuides(): Promise<{ professional: string | null; fiction: string | null }> {
+  const load = async (path: string): Promise<string | null> => {
+    try {
+      return await fetchVaultFile(path);
+    } catch (err) {
+      console.error(`[direction] Failed to fetch voice guide ${path}:`, err);
+      return null;
+    }
+  };
+  const [professional, fiction] = await Promise.all([
+    load(VOICE_GUIDE_PROFESSIONAL),
+    load(VOICE_GUIDE_FICTION),
+  ]);
+  return { professional, fiction };
+}
+
 export async function gatherContext(): Promise<GatheredContext> {
-  const [recentToolUsage, activeContexts, recentWritings] = await Promise.all([
+  const [recentToolUsage, activeContexts, recentWritings, voiceGuides] = await Promise.all([
     fetchToolUsage(),
     fetchActiveContexts(),
     fetchWritingsWithContent(),
+    fetchVoiceGuides(),
   ]);
 
   const recentDigestSnippets = fetchRecentDigestSnippets();
@@ -424,5 +448,15 @@ export async function gatherContext(): Promise<GatheredContext> {
   const missionStatement = fetchMissionStatement();
   const recentlyRecommendedHosts = fetchRecentlyRecommendedHosts();
 
-  return { recentToolUsage, activeContexts, recentWritings, recentDigestSnippets, recentFeedback, missionStatement, recentlyRecommendedHosts };
+  return {
+    recentToolUsage,
+    activeContexts,
+    recentWritings,
+    recentDigestSnippets,
+    recentFeedback,
+    missionStatement,
+    recentlyRecommendedHosts,
+    voiceGuideProfessional: voiceGuides.professional,
+    voiceGuideFiction: voiceGuides.fiction,
+  };
 }

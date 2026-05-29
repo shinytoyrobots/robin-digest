@@ -44,7 +44,7 @@ Key principles:
 - INTERNAL vs EXTERNAL. Robin's own writings and vault pieces (marked [INTERNAL] in the context) are internal material — his own thinking, fiction, and essays. Digest snippets are external material — what he has been reading. These are distinct and should be treated as such.
 - CONNECT OUTWARD. Regular suggestions (non-engage) must bridge internal and external: take something from Robin's own work or vault and connect it to at least one external source from the digest, or vice versa. A suggestion that only references internal material with no external anchor is incomplete. A suggestion that only references external material with no internal hook misses the point. The engage suggestions handle direct outreach — regular suggestions handle the quieter work of letting external ideas fertilise Robin's own work and thinking.
 - TRACK COHERENCE. The "track" field describes which of Robin's output streams the suggestion advances — not where the external source must come from. A "professional" suggestion lands in Signals or Field Notes; a "fiction" suggestion lands in Shiny Toy Robots, Alternate Frequencies, or Static Drift world-building. The INTERNAL anchor (Robin's own writing or vault material) determines the track: if the internal anchor is fiction, the suggestion is fiction; if it's non-fiction, the suggestion is professional.
-- CROSS-PIPELINE BISOCIATION IS ENCOURAGED. The EXTERNAL anchor can come from ANY pipeline — fiction, pm-blogs, design-tech, ai-news, ai-thoughts, or culture. A Lenny's PM essay can spark a Static Drift scene; a fiction-pipeline poem can inform a Field Notes essay on craft. The richest suggestions often cross domains. Do NOT confine fiction suggestions to fiction-pipeline external sources — that starves the fiction track of external material and pushes it toward purely internal references, which violates the CONNECT OUTWARD rule above.
+- CROSS-PIPELINE BRIDGING — USE WITH CARE. Bridges MAY cross pipelines, but the connection must be SUBSTANTIVE, not thematic-keyword. For FICTION regular suggestions specifically, prefer external anchors from the FICTION or CULTURE pipelines, where resonance with Robin's fiction is most natural. You may bridge a fiction piece to an AI / PM / design-tech source, but ONLY when the underlying human or thematic substance genuinely coincides — never merely because both mention "systems", "agents", "autonomy", "auditability", or similar shared vocabulary. A forced fiction↔tech link — mapping one of Robin's stories onto an AI/PM concept that only superficially rhymes — is WORSE than no bridge. If the only available external anchor for a fiction suggestion is a thin tech parallel, pick a different angle, or anchor in a fiction/culture-pipeline source instead. (Professional suggestions may range more freely across pipelines.) Apply the SUMMARISE BEFORE CONNECTING test strictly here: if the two one-sentence summaries don't share real substance, drop the bridge.
 - SOURCE DIVERSITY. Each regular suggestion should reference a different external source — do not cite the same article or publication twice across suggestions. The digest covers 60+ sources across 6 pipelines; spread your attention.
 
 Today's focus lens (applied to BOTH tracks): "${angle}" — ${ANGLE_DESCRIPTIONS[angle]}
@@ -74,7 +74,7 @@ THE COMMENT RECIPE — every "draft" must:
 2. ADD VALUE ONLY ROBIN COULD — a perspective, counter-example, evidence, or experience; be a PEER contributing, not a fan. Where the piece holds a productive internal tension (a claim its own evidence undercuts; two points that pull apart), prefer to NAME THE JUXTAPOSITION AND ASK THE OPEN QUESTION rather than asserting a correction.
 3. WRITE FOR THE LURKING READER, not to flatter the author — leave the thread better for the next person who reads it.
 4. END WITH AN OPEN HAND — close on an unresolved tension or a genuine question, not a verdict. Do not try to have the last word.
-5. Sound like Robin speaking — drop the corporate register; it reads as insincere and AI-generated.
+5. Sound like ROBIN. Match the VOICE GUIDE for this track provided in the context below — the Professional guide for professional-track drafts (Field Notes / Signals), the Fiction guide for fiction-track drafts (Shiny Toy Robots / Alternate Frequencies). Honor each guide's "AI Pattern Check": avoid the vocabulary and structural tells it flags. Drop the corporate register entirely.
 Keep drafts to 3-5 sentences (briefer for a LinkedIn comment; longer only when complexity genuinely warrants).
 
 TRUST RULES (non-negotiable):
@@ -115,6 +115,15 @@ Every item MUST include a "track" field set to either "professional" or "fiction
 No markdown, no preamble, no explanation — just the JSON array.`;
 
   const parts: string[] = [];
+
+  if (context.voiceGuideProfessional) {
+    parts.push("## VOICE GUIDE — Professional track (apply to professional-track engage drafts: Field Notes / Signals)");
+    parts.push(context.voiceGuideProfessional);
+  }
+  if (context.voiceGuideFiction) {
+    parts.push("\n## VOICE GUIDE — Fiction track (apply to fiction-track engage drafts: Shiny Toy Robots / Alternate Frequencies)");
+    parts.push(context.voiceGuideFiction);
+  }
 
   if (context.recentWritings.length > 0) {
     const isVault = (w: { url: string }) => w.url.startsWith("vault:");
