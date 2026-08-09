@@ -181,18 +181,6 @@ No markdown, no preamble, no explanation — just the JSON array.`;
     }
   }
 
-  if (context.recentToolUsage.length > 0) {
-    parts.push("\n## Recent robin-mcp tool usage (what Robin's been working on)");
-    for (const t of context.recentToolUsage) {
-      parts.push(`- ${t.tool}: ${t.calls} calls`);
-    }
-  }
-
-  if (context.activeContexts.length > 0) {
-    parts.push("\n## Active contexts/sources in robin-mcp");
-    parts.push(context.activeContexts.join(", "));
-  }
-
   if (context.recentFeedback.length > 0) {
     parts.push("\n## Recent feedback on past suggestions");
     for (const f of context.recentFeedback) {
