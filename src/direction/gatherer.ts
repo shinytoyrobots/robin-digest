@@ -4,8 +4,6 @@ import { parseFeed } from "../lib/rss.js";
 import { stripHtml } from "../lib/html.js";
 
 export interface GatheredContext {
-  recentToolUsage: { tool: string; calls: number }[];
-  activeContexts: string[];
   recentWritings: { title: string; url: string; category: "fiction" | "non-fiction"; excerpt: string }[];
   recentDigestSnippets: { insight: string; source: string; source_url: string; commentable: boolean; published_at: string | null; pipeline_id: string }[];
   recentFeedback: { reaction: string; suggestion_title: string; note?: string }[];
@@ -107,19 +105,6 @@ function sampleN<T>(arr: T[], n: number): T[] {
   return copy.slice(0, n);
 }
 
-async function fetchJson(url: string): Promise<unknown> {
-  const headers: Record<string, string> = { Accept: "application/json" };
-  if (config.robinMcpToken) {
-    headers["Authorization"] = `Bearer ${config.robinMcpToken}`;
-  }
-  const res = await fetch(url, {
-    headers,
-    signal: AbortSignal.timeout(config.fetchTimeoutMs),
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status} from ${url}`);
-  return res.json();
-}
-
 function truncateToWords(text: string, first: number, last?: number): string {
   const plain = stripHtml(text);
   const words = plain.split(/\s+/).filter(Boolean);
@@ -127,30 +112,6 @@ function truncateToWords(text: string, first: number, last?: number): string {
     return words.slice(0, first + (last ?? 0)).join(" ");
   }
   return `${words.slice(0, first).join(" ")} [...] ${words.slice(-last).join(" ")}`;
-}
-
-async function fetchToolUsage(): Promise<GatheredContext["recentToolUsage"]> {
-  try {
-    const data = (await fetchJson(`${config.robinMcpUrl}/dashboard/api/stats?period=7d`)) as {
-      tool_usage?: { tool: string; calls: number }[];
-    };
-    return data.tool_usage ?? [];
-  } catch (err) {
-    console.error("[direction] Failed to fetch tool usage:", err);
-    return [];
-  }
-}
-
-async function fetchActiveContexts(): Promise<string[]> {
-  try {
-    const data = (await fetchJson(`${config.robinMcpUrl}/dashboard/api/routing`)) as {
-      routes?: { context: string }[];
-    };
-    return data.routes?.map((r) => r.context) ?? [];
-  } catch (err) {
-    console.error("[direction] Failed to fetch routing:", err);
-    return [];
-  }
 }
 
 async function fetchWritingsWithContent(): Promise<GatheredContext["recentWritings"]> {
@@ -413,16 +374,12 @@ function fetchMissionStatement(): string | null {
 }
 
 export async function gatherContext(): Promise<GatheredContext> {
-  const [recentToolUsage, activeContexts, recentWritings] = await Promise.all([
-    fetchToolUsage(),
-    fetchActiveContexts(),
-    fetchWritingsWithContent(),
-  ]);
+  const recentWritings = await fetchWritingsWithContent();
 
   const recentDigestSnippets = fetchRecentDigestSnippets();
   const recentFeedback = fetchRecentFeedback();
   const missionStatement = fetchMissionStatement();
   const recentlyRecommendedHosts = fetchRecentlyRecommendedHosts();
 
-  return { recentToolUsage, activeContexts, recentWritings, recentDigestSnippets, recentFeedback, missionStatement, recentlyRecommendedHosts };
+  return { recentWritings, recentDigestSnippets, recentFeedback, missionStatement, recentlyRecommendedHosts };
 }

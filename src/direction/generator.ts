@@ -84,7 +84,6 @@ export async function generateDailyDirection(modelOverride?: string): Promise<nu
   const contextSummary = [
     context.recentWritings.length > 0 ? `${context.recentWritings.length} writings` : null,
     context.recentDigestSnippets.length > 0 ? `${context.recentDigestSnippets.length} snippets` : null,
-    context.recentToolUsage.length > 0 ? `${context.recentToolUsage.length} tools` : null,
     context.recentFeedback.length > 0 ? `${context.recentFeedback.length} feedback items` : null,
   ]
     .filter(Boolean)
