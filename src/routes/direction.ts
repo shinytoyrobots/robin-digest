@@ -51,7 +51,7 @@ directionRouter.get("/dailydirection", (req, res) => {
 
   // Per-million-token pricing for models we use
   const MODEL_PRICING: Record<string, { input: number; output: number }> = {
-    "claude-sonnet-4-6": { input: 3.0, output: 15.0 },
+    "claude-sonnet-5": { input: 3.0, output: 15.0 },
     "claude-haiku-4-5-20251001": { input: 0.80, output: 4.0 },
   };
 
@@ -74,7 +74,7 @@ directionRouter.get("/dailydirection", (req, res) => {
     for (const row of allRows) {
       totalIn += row.input_tokens;
       totalOut += row.output_tokens;
-      const pricing = MODEL_PRICING[row.model_used ?? ""] ?? MODEL_PRICING["claude-sonnet-4-6"];
+      const pricing = MODEL_PRICING[row.model_used ?? ""] ?? MODEL_PRICING["claude-sonnet-5"];
       totalCostUsd += (row.input_tokens * pricing.input + row.output_tokens * pricing.output) / 1_000_000;
     }
     // Average per direction run (not per row — songs are part of a direction run)
@@ -126,7 +126,7 @@ directionRouter.post("/dailydirection/feedback", express.json(), (req, res) => {
 
 
 directionRouter.post("/dailydirection/refresh", express.urlencoded({ extended: false }), (req, res) => {
-  const ALLOWED_MODELS = ["claude-sonnet-4-6", "claude-haiku-4-5-20251001"];
+  const ALLOWED_MODELS = ["claude-sonnet-5", "claude-haiku-4-5-20251001"];
   const requestedModel = req.body?.model as string | undefined;
   const model = ALLOWED_MODELS.includes(requestedModel ?? "") ? requestedModel : undefined;
   console.error(`[direction] Manual refresh triggered (model: ${model ?? "default"})`);
