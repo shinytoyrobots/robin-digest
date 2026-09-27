@@ -21,7 +21,7 @@ export const config = {
   cronTimezone: process.env.CRON_TIMEZONE || "America/Chicago",
   directionCron: process.env.DIRECTION_CRON || "30 3 * * *",
   githubToken: process.env.GITHUB_TOKEN || "",
-  directionModel: process.env.DIRECTION_MODEL || "claude-sonnet-4-6",
+  directionModel: process.env.DIRECTION_MODEL || "claude-sonnet-5",
   spotifyClientId: process.env.SPOTIFY_CLIENT_ID || "",
   spotifyClientSecret: process.env.SPOTIFY_CLIENT_SECRET || "",
 };

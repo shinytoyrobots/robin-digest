@@ -263,7 +263,7 @@ export async function generateSongRecommendation(directionId: number, attemptLog
 
     try {
       const prompt = buildSongPrompt(suggestions, releases, pastSongs);
-      const model = "claude-sonnet-4-6";
+      const model = "claude-sonnet-5";
       const result = await generateTextWithUsage(prompt, undefined, {
         model,
         temperature: 0.8,
