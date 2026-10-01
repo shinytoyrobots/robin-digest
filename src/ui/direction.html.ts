@@ -277,7 +277,7 @@ ${notice === "generating" ? `<div class="notice">New direction generating — re
 <div class="toolbar">
   <form method="POST" action="/dailydirection/refresh" style="margin:0;display:flex;gap:6px;align-items:center">
     <select name="model" class="model-select">
-      <option value="claude-sonnet-5">Sonnet</option>
+      <option value="claude-sonnet-5-5">Sonnet</option>
       <option value="claude-haiku-4-5-20251001">Haiku</option>
     </select>
     <button type="submit" class="btn-action">&#8635; Regenerate</button>

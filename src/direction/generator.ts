@@ -47,7 +47,7 @@ export async function generateDailyDirection(modelOverride?: string): Promise<nu
   const { system, user } = buildPrompt(context, angle);
 
   const model = modelOverride ?? config.directionModel;
-  const callOptions = { temperature: 0.9, model };
+  const callOptions = { model };
   let inputTokens = 0;
   let outputTokens = 0;
 

@@ -263,10 +263,9 @@ export async function generateSongRecommendation(directionId: number, attemptLog
 
     try {
       const prompt = buildSongPrompt(suggestions, releases, pastSongs);
-      const model = "claude-sonnet-5";
+      const model = "claude-sonnet-5-5";
       const result = await generateTextWithUsage(prompt, undefined, {
         model,
-        temperature: 0.8,
       });
 
       const cleaned = result.text.replace(/```json?\s*/g, "").replace(/```/g, "").trim();
