@@ -32,6 +32,10 @@ async function callClaude(prompt: string, systemPrompt?: string, options?: Gener
     ...(options?.temperature !== undefined && { temperature: options.temperature }),
   });
 
+  if (response.stop_reason === "max_tokens") {
+    console.error(`[claude] Output truncated at max_tokens (${response.usage.output_tokens}, model: ${response.model})`);
+  }
+
   const textBlock = response.content.find((b) => b.type === "text");
   return {
     text: textBlock?.text || "",

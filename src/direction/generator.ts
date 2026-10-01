@@ -47,7 +47,7 @@ export async function generateDailyDirection(modelOverride?: string): Promise<nu
   const { system, user } = buildPrompt(context, angle);
 
   const model = modelOverride ?? config.directionModel;
-  const callOptions = { model };
+  const callOptions = { model, maxTokens: 8000 };
   let inputTokens = 0;
   let outputTokens = 0;
 
