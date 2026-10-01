@@ -266,6 +266,7 @@ export async function generateSongRecommendation(directionId: number, attemptLog
       const model = "claude-sonnet-5-5";
       const result = await generateTextWithUsage(prompt, undefined, {
         model,
+        maxTokens: 4000,
       });
 
       const cleaned = result.text.replace(/```json?\s*/g, "").replace(/```/g, "").trim();
