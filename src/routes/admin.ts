@@ -243,7 +243,7 @@ ${pipelineList}
 Return JSON only (no markdown):
 {"pipeline_id":"<best match id>","name":"<short clean name, no Blog suffix unless meaningful>","rationale":"<one sentence why>"}`;
 
-    const raw = await generateText(prompt, undefined, { temperature: 0.2, maxTokens: 256 });
+    const raw = await generateText(prompt, undefined, { maxTokens: 2048 });
     let parsed: { pipeline_id: string; name: string; rationale: string };
     try {
       const clean = raw.replace(/^```[a-z]*\n?/gm, "").replace(/```$/gm, "").trim();

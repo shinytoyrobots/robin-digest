@@ -54,6 +54,7 @@ directionRouter.get("/dailydirection", (req, res) => {
     "claude-sonnet-5-5": { input: 2.0, output: 10.0 },
     "claude-sonnet-5": { input: 2.0, output: 10.0 },
     "claude-sonnet-4-6": { input: 3.0, output: 15.0 },
+    "claude-haiku-5-5": { input: 0.10, output: 0.50 },
     "claude-haiku-4-5-20251001": { input: 0.80, output: 4.0 },
   };
 
@@ -128,7 +129,7 @@ directionRouter.post("/dailydirection/feedback", express.json(), (req, res) => {
 
 
 directionRouter.post("/dailydirection/refresh", express.urlencoded({ extended: false }), (req, res) => {
-  const ALLOWED_MODELS = ["claude-sonnet-5-5", "claude-haiku-4-5-20251001"];
+  const ALLOWED_MODELS = ["claude-sonnet-5-5", "claude-haiku-5-5"];
   const requestedModel = req.body?.model as string | undefined;
   const model = ALLOWED_MODELS.includes(requestedModel ?? "") ? requestedModel : undefined;
   console.error(`[direction] Manual refresh triggered (model: ${model ?? "default"})`);

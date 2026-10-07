@@ -13,7 +13,7 @@ export const config = {
   httpPort: parseInt(process.env.PORT || process.env.HTTP_PORT || "3002", 10),
   authToken: process.env.AUTH_TOKEN || "",
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || "",
-  claudeModel: process.env.CLAUDE_MODEL || "claude-haiku-4-5-20251001",
+  claudeModel: process.env.CLAUDE_MODEL || "claude-haiku-5-5",
   pipelinesDir: process.env.PIPELINES_DIR || "./pipelines",
   userAgent: process.env.USER_AGENT || "RobinDigest/1.0",
   fetchTimeoutMs: parseInt(process.env.FETCH_TIMEOUT_MS || "15000", 10),
