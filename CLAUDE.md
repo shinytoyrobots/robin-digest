@@ -22,4 +22,4 @@ After changes: trigger pipeline manually, check `/digests` and `/dailydirection`
 - Start: `npm run start`
 
 ## Model swaps
-Claude 5.x Sonnet rejects `temperature` (400) and thinks by default; thinking tokens count toward `max_tokens`. After changing a model ID, drop sampling params, keep explicit `maxTokens` generous, and trigger a direction run to confirm it parses.
+Claude 5.x Sonnet rejects `temperature` (400) and thinks by default; thinking tokens count toward `max_tokens`. After changing a model ID, drop sampling params, grep every `maxTokens` call site (generator.ts sets its own) and keep it generous — Haiku 5.5 thinks too, and trigger a direction run to confirm it parses.
