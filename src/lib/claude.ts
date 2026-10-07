@@ -11,7 +11,6 @@ function getClient(): Anthropic {
 }
 
 export interface GenerateOptions {
-  temperature?: number;
   maxTokens?: number;
   model?: string;
 }
@@ -26,10 +25,9 @@ async function callClaude(prompt: string, systemPrompt?: string, options?: Gener
   const anthropic = getClient();
   const response = await anthropic.messages.create({
     model: options?.model ?? config.claudeModel,
-    max_tokens: options?.maxTokens ?? 2048,
+    max_tokens: options?.maxTokens ?? 8000,
     system: systemPrompt || "",
     messages: [{ role: "user", content: prompt }],
-    ...(options?.temperature !== undefined && { temperature: options.temperature }),
   });
 
   if (response.stop_reason === "max_tokens") {
