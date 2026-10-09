@@ -173,6 +173,20 @@ function initSchema(db: Database.Database): void {
     db.exec("ALTER TABLE direction_songs ADD COLUMN model_used TEXT");
   }
 
+  // Source retention: stale sources are disabled (not deleted); summary-only feeds fetch the article page
+  const sourceColumns = new Set(
+    (db.prepare("SELECT name FROM pragma_table_info('sources')").all() as { name: string }[]).map(c => c.name)
+  );
+  if (!sourceColumns.has("summary_only")) {
+    db.exec("ALTER TABLE sources ADD COLUMN summary_only INTEGER NOT NULL DEFAULT 0");
+  }
+  if (!sourceColumns.has("stale_since")) {
+    db.exec("ALTER TABLE sources ADD COLUMN stale_since TEXT");
+  }
+  if (!sourceColumns.has("enabled_at")) {
+    db.exec("ALTER TABLE sources ADD COLUMN enabled_at TEXT");
+  }
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,

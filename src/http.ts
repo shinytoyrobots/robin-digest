@@ -11,7 +11,7 @@ import { generateSongRecommendation } from "./direction/spotify.js";
 import { isFeaturePaused } from "./ui/shared.js";
 import { digestsRouter } from "./routes/digests.js";
 import { directionRouter } from "./routes/direction.js";
-import { adminRouter, sourcesPageRouter, autoDeleteStaleSources, purgeOldDeletedSources } from "./routes/admin.js";
+import { adminRouter, sourcesPageRouter, disableStaleSources, purgeOldDeletedSources } from "./routes/admin.js";
 
 // Initialize database and load pipeline configs
 getDb();
@@ -154,13 +154,13 @@ if (cron.validate(config.directionCron)) {
   console.error(`[cron] Direction scheduled: ${config.directionCron} (${config.cronTimezone})`);
 }
 
-// Daily stale source cleanup: auto-delete stale, purge deleted > 7 days
+// Daily stale source cleanup: disable stale, purge manually deleted > 7 days
 cron.schedule("0 3 * * *", () => {
   console.error("[cron] Stale source cleanup starting");
   try {
-    const deleted = autoDeleteStaleSources();
+    const disabled = disableStaleSources();
     const purged = purgeOldDeletedSources();
-    console.error(`[cron] Stale cleanup: ${deleted} auto-deleted, ${purged} purged from recycle bin`);
+    console.error(`[cron] Stale cleanup: ${disabled} disabled as stale, ${purged} purged from recycle bin`);
   } catch (err) {
     console.error("[cron] Stale cleanup error:", err);
   }

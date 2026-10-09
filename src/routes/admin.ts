@@ -34,22 +34,28 @@ function softDeleteSource(
   })();
 }
 
-export function autoDeleteStaleSources(): number {
+/**
+ * Disable (never delete) enabled sources with no article in 30 days. Disabled sources stay on
+ * /sources flagged as stale so they can be fixed and re-enabled; re-enabling sets enabled_at,
+ * which gives the source a fresh 30-day grace period.
+ */
+export function disableStaleSources(): number {
   const db = getDb();
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  const stale = db.prepare(`
-    SELECT * FROM (
-      SELECT s.id, s.pipeline_id, p.name as pipeline_name, s.name, s.url, s.feed_url, s.feed_type,
-        (SELECT MAX(COALESCE(a.published_at, a.fetched_at)) FROM articles a WHERE a.source_id = s.id) as latest_article_at
-      FROM sources s
-      JOIN pipelines p ON s.pipeline_id = p.id
-      WHERE s.last_fetched_at IS NOT NULL
-    ) WHERE latest_article_at IS NULL OR latest_article_at < ?
-  `).all(thirtyDaysAgo) as (DeletedSourceRecord & { latest_article_at: string | null })[];
-  for (const source of stale) {
-    softDeleteSource(db, source, true);
-  }
-  return stale.length;
+  const result = db.prepare(`
+    UPDATE sources SET enabled = 0, stale_since = ?
+    WHERE id IN (
+      SELECT id FROM (
+        SELECT s.id, s.enabled_at,
+          (SELECT MAX(COALESCE(a.published_at, a.fetched_at)) FROM articles a WHERE a.source_id = s.id) as latest_article_at
+        FROM sources s
+        WHERE s.enabled = 1 AND s.last_fetched_at IS NOT NULL
+      )
+      WHERE (latest_article_at IS NULL OR latest_article_at < ?)
+        AND (enabled_at IS NULL OR enabled_at < ?)
+    )
+  `).run(new Date().toISOString(), thirtyDaysAgo, thirtyDaysAgo);
+  return result.changes as number;
 }
 
 export function purgeOldDeletedSources(): number {
@@ -61,7 +67,7 @@ export function purgeOldDeletedSources(): number {
 
 adminRouter.get("/admin/sources", (_req, res) => {
   const db = getDb();
-  const sources = db.prepare("SELECT pipeline_id, name, url, feed_url, feed_type, enabled, last_fetched_at FROM sources ORDER BY pipeline_id, url").all();
+  const sources = db.prepare("SELECT pipeline_id, name, url, feed_url, feed_type, enabled, summary_only, stale_since, last_fetched_at FROM sources ORDER BY pipeline_id, url").all();
   res.json(sources);
 });
 
@@ -89,11 +95,11 @@ adminRouter.get("/admin/stats", (_req, res) => {
 sourcesPageRouter.get("/sources", (req, res) => {
   const db = getDb();
   const sources = db.prepare(
-    "SELECT s.pipeline_id, p.name as pipeline_name, s.name, s.url, s.enabled, s.last_fetched_at, " +
+    "SELECT s.pipeline_id, p.name as pipeline_name, s.name, s.url, s.enabled, s.last_fetched_at, s.summary_only, s.stale_since, " +
     "(SELECT MAX(COALESCE(a.published_at, a.fetched_at)) FROM articles a WHERE a.source_id = s.id) as latest_article_at " +
     "FROM sources s JOIN pipelines p ON s.pipeline_id = p.id " +
     "ORDER BY p.name, s.enabled DESC, s.name"
-  ).all() as { pipeline_id: string; pipeline_name: string; name: string; url: string; enabled: number; last_fetched_at: string | null; latest_article_at: string | null }[];
+  ).all() as { pipeline_id: string; pipeline_name: string; name: string; url: string; enabled: number; last_fetched_at: string | null; summary_only: number; stale_since: string | null; latest_article_at: string | null }[];
   const pipelines = db.prepare("SELECT id, name FROM pipelines WHERE enabled = 1 ORDER BY name").all() as { id: string; name: string }[];
   const deleted = db.prepare(
     "SELECT id, pipeline_id, pipeline_name, name, url, auto_deleted, deleted_at FROM deleted_sources ORDER BY deleted_at DESC"
@@ -103,9 +109,9 @@ sourcesPageRouter.get("/sources", (req, res) => {
 });
 
 adminRouter.post("/admin/update-source", express.json(), (req, res) => {
-  const { pipeline_id, url, new_url, feed_url, name, enabled } = req.body as {
+  const { pipeline_id, url, new_url, feed_url, name, enabled, summary_only } = req.body as {
     pipeline_id: string; url: string;
-    new_url?: string; feed_url?: string; name?: string; enabled?: boolean;
+    new_url?: string; feed_url?: string; name?: string; enabled?: boolean; summary_only?: boolean;
   };
   if (!pipeline_id || !url) { res.status(400).json({ error: "pipeline_id and url required" }); return; }
   const db = getDb();
@@ -117,6 +123,8 @@ adminRouter.post("/admin/update-source", express.json(), (req, res) => {
   if (feed_url !== undefined) { sets.push("feed_url = ?"); params.push(feed_url); }
   if (name !== undefined) { sets.push("name = ?"); params.push(name); }
   if (enabled !== undefined) { sets.push("enabled = ?"); params.push(enabled ? 1 : 0); }
+  if (enabled) { sets.push("stale_since = NULL", "enabled_at = ?"); params.push(new Date().toISOString()); }
+  if (summary_only !== undefined) { sets.push("summary_only = ?"); params.push(summary_only ? 1 : 0); }
   if (sets.length === 0) { res.status(400).json({ error: "nothing to update" }); return; }
   params.push(source.id);
   db.prepare(`UPDATE sources SET ${sets.join(", ")} WHERE id = ?`).run(...params);
@@ -126,7 +134,7 @@ adminRouter.post("/admin/update-source", express.json(), (req, res) => {
 sourcesPageRouter.post("/admin/seed-sources", express.json(), (req, res) => {
   const { pipeline_id, sources } = req.body as {
     pipeline_id: string;
-    sources: { name: string; url: string; feed_url?: string; feed_type?: string }[];
+    sources: { name: string; url: string; feed_url?: string; feed_type?: string; summary_only?: boolean }[];
   };
   if (!pipeline_id || !sources?.length) {
     res.status(400).json({ error: "pipeline_id and sources[] required" });
@@ -147,9 +155,10 @@ sourcesPageRouter.post("/admin/seed-sources", express.json(), (req, res) => {
     return;
   }
 
-  const insert = db.prepare("INSERT OR IGNORE INTO sources (pipeline_id, name, url, feed_url, feed_type) VALUES (?, ?, ?, ?, ?)");
+  const insert = db.prepare("INSERT OR IGNORE INTO sources (pipeline_id, name, url, feed_url, feed_type, summary_only, enabled_at) VALUES (?, ?, ?, ?, ?, ?, ?)");
+  const now = new Date().toISOString();
   const tx = db.transaction(() => {
-    for (const s of sources) insert.run(pipeline_id, s.name, s.url, s.feed_url ?? null, s.feed_type ?? null);
+    for (const s of sources) insert.run(pipeline_id, s.name, s.url, s.feed_url ?? null, s.feed_type ?? null, s.summary_only ? 1 : 0, now);
   });
   tx();
   const count = (db.prepare("SELECT COUNT(*) as c FROM sources WHERE pipeline_id = ?").get(pipeline_id) as { c: number }).c;
@@ -187,8 +196,8 @@ sourcesPageRouter.post("/admin/reactivate-source", express.json(), (req, res) =>
   try {
     db.transaction(() => {
       db.prepare(
-        "INSERT OR IGNORE INTO sources (pipeline_id, name, url, feed_url, feed_type) VALUES (?, ?, ?, ?, ?)"
-      ).run(deleted.pipeline_id, deleted.name, deleted.url, deleted.feed_url, deleted.feed_type);
+        "INSERT OR IGNORE INTO sources (pipeline_id, name, url, feed_url, feed_type, enabled_at) VALUES (?, ?, ?, ?, ?, ?)"
+      ).run(deleted.pipeline_id, deleted.name, deleted.url, deleted.feed_url, deleted.feed_type, new Date().toISOString());
       db.prepare("DELETE FROM deleted_sources WHERE id = ?").run(id);
     })();
     res.json({ reactivated: 1, pipeline_id: deleted.pipeline_id, url: deleted.url });
@@ -316,10 +325,10 @@ adminRouter.post("/admin/clear-writing-cache", (_req, res) => {
 
 adminRouter.post("/admin/run-stale-cleanup", (_req, res) => {
   try {
-    const deleted = autoDeleteStaleSources();
+    const disabled = disableStaleSources();
     const purged = purgeOldDeletedSources();
-    console.error(`[admin] Stale cleanup: ${deleted} auto-deleted, ${purged} purged`);
-    res.json({ deleted, purged });
+    console.error(`[admin] Stale cleanup: ${disabled} disabled, ${purged} purged`);
+    res.json({ disabled, purged });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
