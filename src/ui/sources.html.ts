@@ -1,6 +1,6 @@
 import { esc, SHARED_CSS, FONT_LINK } from "./shared.js";
 
-type SourceRow = { pipeline_id: string; pipeline_name: string; name: string; url: string; enabled: number; last_fetched_at: string | null; latest_article_at: string | null };
+type SourceRow = { pipeline_id: string; pipeline_name: string; name: string; url: string; enabled: number; last_fetched_at: string | null; summary_only: number; stale_since: string | null; latest_article_at: string | null };
 type PipelineInfo = { id: string; name: string };
 type DeletedSourceRow = { id: number; pipeline_id: string; pipeline_name: string; name: string; url: string; auto_deleted: number; deleted_at: string };
 
@@ -18,6 +18,11 @@ const PAGE_CSS = `${SHARED_CSS}
 .source-table a:hover{text-decoration:underline}
 .disabled{opacity:.45}
 .disabled-tag{display:inline-block;background:#e0e0e0;color:#525252;font-size:.6875rem;padding:1px 5px;border-radius:2px;font-family:'IBM Plex Mono',monospace;margin-left:6px;vertical-align:middle}
+.summary-tag{display:inline-block;background:#edf5ff;color:#0043ce;font-size:.6875rem;padding:1px 5px;border-radius:2px;font-family:'IBM Plex Mono',monospace;margin-left:6px;vertical-align:middle;border:1px solid #d0e2ff}
+.row-actions{white-space:nowrap;text-align:right}
+.btn-toggle{background:none;border:1px solid #8d8d8d;color:#161616;font-family:inherit;font-size:.75rem;padding:2px 8px;margin-right:4px;cursor:pointer;border-radius:0}
+.btn-toggle:hover{background:#e8e8e8}
+.check-label{display:flex;align-items:center;gap:6px;font-size:.875rem;color:#161616;margin:.5rem 0}
 .stale-tag{display:inline-block;background:#fff1f1;color:#da1e28;font-size:.6875rem;padding:1px 5px;border-radius:2px;font-family:'IBM Plex Mono',monospace;margin-left:6px;vertical-align:middle;border:1px solid #ffd7d9}
 .count{color:#6f6f6f;font-size:.8125rem;font-weight:400;margin-left:6px}
 .count-warn{color:#d4a017;font-size:.8125rem;font-weight:600;margin-left:6px}
@@ -75,13 +80,20 @@ export function renderSourcesPage(sources: SourceRow[], pipelines: PipelineInfo[
     body += `<table class="source-table"><thead><tr><th>Name</th><th>URL</th><th></th></tr></thead><tbody>`;
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     for (const s of pipeline.sources) {
-      const isStale = s.last_fetched_at && (!s.latest_article_at || s.latest_article_at < thirtyDaysAgo);
+      const isStale = s.stale_since || (s.last_fetched_at && (!s.latest_article_at || s.latest_article_at < thirtyDaysAgo));
+      const lastArticle = s.latest_article_at ? `Last article: ${s.latest_article_at.slice(0, 10)}` : "No articles stored";
+      const staleTitle = s.stale_since ? `${lastArticle}. Disabled as stale on ${s.stale_since.slice(0, 10)}` : lastArticle;
       const disabledTag = s.enabled ? "" : `<span class="disabled-tag">disabled</span>`;
-      const staleTag = isStale ? `<span class="stale-tag" title="${s.latest_article_at ? `Last article: ${s.latest_article_at.slice(0, 10)}` : "No articles fetched"}">stale</span>` : "";
+      const staleTag = isStale ? `<span class="stale-tag" title="${esc(staleTitle)}">stale</span>` : "";
+      const summaryTag = s.summary_only ? `<span class="summary-tag" title="Feed has excerpts only; full article pages are fetched">summary-only</span>` : "";
+      const args = `${esc(JSON.stringify(pid))},${esc(JSON.stringify(s.url))}`;
       body += `<tr class="${s.enabled ? "" : "disabled"}">`;
-      body += `<td>${esc(s.name)}${disabledTag}${staleTag}</td>`;
+      body += `<td>${esc(s.name)}${disabledTag}${staleTag}${summaryTag}</td>`;
       body += `<td><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.url)}</a></td>`;
-      body += `<td><button class="btn-del" onclick="deleteSource(${esc(JSON.stringify(pid))},${esc(JSON.stringify(s.url))},${esc(JSON.stringify(s.name))})">Delete</button></td>`;
+      body += `<td class="row-actions">`;
+      body += `<button class="btn-toggle" onclick="updateSource(${args},{enabled:${s.enabled ? "false" : "true"}})">${s.enabled ? "Disable" : "Enable"}</button>`;
+      body += `<button class="btn-toggle" onclick="updateSource(${args},{summary_only:${s.summary_only ? "false" : "true"}})">${s.summary_only ? "Full feed" : "Summary-only"}</button>`;
+      body += `<button class="btn-del" onclick="deleteSource(${args},${esc(JSON.stringify(s.name))})">Delete</button></td>`;
       body += `</tr>`;
     }
     body += `</tbody></table></section>`;
@@ -169,7 +181,7 @@ async function confirmSource() {
     const res = await fetch('/admin/seed-sources', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOKEN },
-      body: JSON.stringify({ pipeline_id, sources: [{ name, url: suggestData.url, feed_url: suggestData.feed_url, feed_type: suggestData.feed_type }] })
+      body: JSON.stringify({ pipeline_id, sources: [{ name, url: suggestData.url, feed_url: suggestData.feed_url, feed_type: suggestData.feed_type, summary_only: document.getElementById('suggest-summary-only').checked }] })
     });
     if (res.ok) { location.reload(); }
     else {
@@ -192,6 +204,16 @@ async function deleteSource(pipelineId, url, name) {
   });
   if (res.ok) { location.reload(); }
   else { const e = await res.json(); alert('Delete failed: ' + e.error); }
+}
+
+async function updateSource(pipelineId, url, changes) {
+  const res = await fetch('/admin/update-source', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOKEN },
+    body: JSON.stringify({ pipeline_id: pipelineId, url, ...changes })
+  });
+  if (res.ok) { location.reload(); }
+  else { const e = await res.json(); alert('Update failed: ' + e.error); }
 }
 
 async function reactivateSource(id, name) {
@@ -232,6 +254,7 @@ ${FONT_LINK}
     <label class="field-label" for="suggest-pipeline">Pipeline</label>
     <select class="field-select" id="suggest-pipeline" onchange="updateConfirmBtn()">${pipelineOptions}</select>
   </div>
+  <label class="check-label"><input type="checkbox" id="suggest-summary-only"> Summary-only feed (fetch full article pages)</label>
   <p class="rationale" id="suggest-rationale"></p>
   <div class="confirm-row">
     <button class="btn-action" id="confirm-btn" onclick="confirmSource()">Add Source</button>

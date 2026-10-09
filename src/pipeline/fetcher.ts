@@ -1,5 +1,5 @@
 import { getDb } from "../db.js";
-import { stripHtml } from "../lib/html.js";
+import { stripHtml, fetchHtml, extractArticleText } from "../lib/html.js";
 import { parseFeed } from "../lib/rss.js";
 import { concurrent } from "../lib/concurrency.js";
 import { config } from "../config.js";
@@ -9,6 +9,9 @@ import type { Source, FetchedArticle } from "../types.js";
  *  is almost certainly a paywall stub ("This post is for paid subscribers") with no
  *  curate-able substance. */
 const MIN_CONTENT_WORDS = 150;
+
+/** Only the newest N feed items of a summary-only source are considered for page fetches. */
+const MAX_PAGE_FETCHES_PER_RUN = 20;
 
 /**
  * Fetch new articles from all enabled sources with RSS/Atom feeds.
@@ -34,10 +37,16 @@ export async function fetchArticles(pipelineId: string): Promise<number> {
       if (!res.ok) throw new Error(`HTTP ${res.status} fetching feed ${feedUrl}`);
       const xml = await res.text();
 
-      const rawArticles = parseFeed(xml, feedType).map((a) => ({
+      let rawArticles = parseFeed(xml, feedType).map((a) => ({
         ...a,
         content: stripHtml(a.content).slice(0, 5000),
       }));
+
+      // Summary-only feeds carry excerpts, so fetch each new article's page for its full text.
+      // The word-count gate below then applies to the page text, not the excerpt.
+      if (source.summary_only) {
+        rawArticles = await fetchFullArticles(rawArticles, source.name);
+      }
 
       const articles = rawArticles.filter((a) => {
         const wordCount = a.content.split(/\s+/).filter(Boolean).length;
@@ -63,6 +72,30 @@ export async function fetchArticles(pipelineId: string): Promise<number> {
   });
 
   return counts.reduce((sum, n) => sum + n, 0);
+}
+
+/**
+ * Replace excerpt content with the article page's body text. Skips articles already
+ * stored (so pages are fetched once) and drops any whose page can't be fetched.
+ */
+async function fetchFullArticles(articles: FetchedArticle[], sourceName: string): Promise<FetchedArticle[]> {
+  const existing = getDb().prepare("SELECT 1 FROM articles WHERE url = ?");
+  // Some feeds carry their whole archive (OpenAI's has 1,000+ items) — only consider the newest items
+  const fresh = [...articles]
+    .sort((a, b) => (b.published_at ?? "").localeCompare(a.published_at ?? ""))
+    .slice(0, MAX_PAGE_FETCHES_PER_RUN)
+    .filter((a) => !existing.get(a.url));
+
+  const full = await concurrent(fresh, 3, async (a) => {
+    try {
+      const content = extractArticleText(await fetchHtml(a.url)).slice(0, 5000);
+      return { ...a, content };
+    } catch (err) {
+      console.error(`[fetcher] ${sourceName}: failed to fetch article page "${a.title}": ${err}`);
+      return null;
+    }
+  });
+  return full.filter((a): a is FetchedArticle => a !== null);
 }
 
 function storeArticles(source: Source, articles: FetchedArticle[]): number {

@@ -25,6 +25,9 @@ export interface Source {
   feed_type: string | null;
   enabled: number;
   last_fetched_at: string | null;
+  summary_only: number;
+  stale_since: string | null;
+  enabled_at: string | null;
 }
 
 export interface Article {

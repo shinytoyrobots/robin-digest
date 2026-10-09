@@ -35,6 +35,27 @@ export function stripHtml(html: string): string {
 }
 
 /**
+ * Extract the main body text of an article page as plain text. Drops page chrome
+ * (nav, header, footer, aside, forms) so boilerplate doesn't inflate the word count,
+ * then prefers the longest <article>, falling back to <main>, then <body>.
+ */
+export function extractArticleText(html: string): string {
+  const cleaned = html.replace(/<(script|style|noscript|nav|header|footer|aside|form|svg)\b[\s\S]*?<\/\1>/gi, " ");
+  const longest = (re: RegExp): string => {
+    let best = "";
+    for (const m of cleaned.matchAll(re)) {
+      const text = stripHtml(m[1]);
+      if (text.length > best.length) best = text;
+    }
+    return best;
+  };
+  return longest(/<article\b[^>]*>([\s\S]*?)<\/article>/gi)
+    || longest(/<main\b[^>]*>([\s\S]*?)<\/main>/gi)
+    || longest(/<body\b[^>]*>([\s\S]*?)<\/body>/gi)
+    || stripHtml(cleaned);
+}
+
+/**
  * Extract all href links from HTML, resolved against a base URL.
  */
 export function extractLinks(html: string, baseUrl: string): string[] {

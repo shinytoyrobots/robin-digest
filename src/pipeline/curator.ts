@@ -76,7 +76,8 @@ export async function curateDigest(
     `  ]\n` +
     `}`;
 
-  const response = await generateText(userPrompt, pipeline.curation_prompt);
+  // Haiku 5.5 thinks by default and thinking tokens count toward max_tokens
+  const response = await generateText(userPrompt, pipeline.curation_prompt, { maxTokens: 16000 });
 
   const jsonMatch = response.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {

@@ -68,7 +68,9 @@ export async function runPipeline(pipelineId: string): Promise<PipelineRunResult
       }
     }
   }
-  if (result) {
+  if (result && result.snippets.length === 0) {
+    console.error(`[runner] Curation selected no snippets for ${pipelineId} — skipping empty digest`);
+  } else if (result) {
     // Step 5: Store digest and snippets
     const insertDigest = db.prepare(
       "INSERT INTO digests (pipeline_id, title) VALUES (?, ?)"
